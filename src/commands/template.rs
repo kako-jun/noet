@@ -6,20 +6,14 @@ use dialoguer::{Confirm, Editor};
 use std::fs;
 use std::path::PathBuf;
 
-pub async fn list_templates() -> Result<()> {
-    let template_dir = get_template_dir()?;
-
-    if !template_dir.exists() {
-        println!("{}", "No templates found.".yellow());
-        println!(
-            "\nCreate a new template with: {}",
-            "noet template add <NAME>".cyan()
-        );
-        return Ok(());
+/// Helper function to get markdown filenames from a directory
+fn list_markdown_files_in_dir(dir: &PathBuf) -> Result<Vec<String>> {
+    if !dir.exists() {
+        return Ok(Vec::new());
     }
 
-    let entries = fs::read_dir(&template_dir)?;
-    let mut templates: Vec<String> = entries
+    let entries = fs::read_dir(dir)?;
+    let mut files: Vec<String> = entries
         .filter_map(|entry| {
             entry.ok().and_then(|e| {
                 let path = e.path();
@@ -32,12 +26,22 @@ pub async fn list_templates() -> Result<()> {
         })
         .collect();
 
+    files.sort();
+    Ok(files)
+}
+
+pub fn list_templates() -> Result<()> {
+    let template_dir = get_template_dir()?;
+    let templates = list_markdown_files_in_dir(&template_dir)?;
+
     if templates.is_empty() {
         println!("{}", "No templates found.".yellow());
+        println!(
+            "\nCreate a new template with: {}",
+            "noet template add <NAME>".cyan()
+        );
         return Ok(());
     }
-
-    templates.sort();
 
     println!("{}", "Available templates:".bold());
     for template in templates {
@@ -52,7 +56,7 @@ pub async fn list_templates() -> Result<()> {
     Ok(())
 }
 
-pub async fn add_template(name: &str) -> Result<()> {
+pub fn add_template(name: &str) -> Result<()> {
     let template_dir = get_template_dir()?;
     fs::create_dir_all(&template_dir)?;
 
@@ -99,7 +103,7 @@ tags:
     Ok(())
 }
 
-pub async fn show_template(name: &str) -> Result<()> {
+pub fn show_template(name: &str) -> Result<()> {
     let template_path = get_template_path(name)?;
 
     if !template_path.exists() {
@@ -119,7 +123,7 @@ pub async fn show_template(name: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn remove_template(name: &str) -> Result<()> {
+pub fn remove_template(name: &str) -> Result<()> {
     let template_path = get_template_path(name)?;
 
     if !template_path.exists() {
@@ -165,28 +169,7 @@ pub fn load_template(name: &str, title: &str) -> Result<String> {
 
 pub fn list_template_names() -> Result<Vec<String>> {
     let template_dir = get_template_dir()?;
-
-    if !template_dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let entries = fs::read_dir(&template_dir)?;
-    let mut templates: Vec<String> = entries
-        .filter_map(|entry| {
-            entry.ok().and_then(|e| {
-                let path = e.path();
-                if path.is_file() && path.extension()? == "md" {
-                    path.file_stem()?.to_str().map(String::from)
-                } else {
-                    None
-                }
-            })
-        })
-        .collect();
-
-    templates.sort();
-
-    Ok(templates)
+    list_markdown_files_in_dir(&template_dir)
 }
 
 fn get_template_dir() -> Result<PathBuf> {
@@ -207,6 +190,10 @@ fn get_template_path(name: &str) -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
     #[test]
     fn test_load_template_with_title() {
         let template_content = r#"---
@@ -223,5 +210,59 @@ Content here"#;
         assert!(result.contains("title: Test Article"));
         assert!(result.contains("# Test Article"));
         assert!(!result.contains("{{TITLE}}"));
+    }
+
+    #[test]
+    fn test_list_markdown_files_in_dir_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let result = list_markdown_files_in_dir(&temp_dir.path().to_path_buf()).unwrap();
+        assert_eq!(result, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_list_markdown_files_in_dir_with_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path();
+
+        // Create test markdown files
+        fs::write(dir_path.join("template1.md"), "content").unwrap();
+        fs::write(dir_path.join("template2.md"), "content").unwrap();
+        fs::write(dir_path.join("not_markdown.txt"), "content").unwrap();
+
+        let result = list_markdown_files_in_dir(&dir_path.to_path_buf()).unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&"template1".to_string()));
+        assert!(result.contains(&"template2".to_string()));
+        assert!(!result.contains(&"not_markdown".to_string()));
+    }
+
+    #[test]
+    fn test_list_markdown_files_in_dir_sorted() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path();
+
+        // Create files in non-alphabetical order
+        fs::write(dir_path.join("zebra.md"), "content").unwrap();
+        fs::write(dir_path.join("apple.md"), "content").unwrap();
+        fs::write(dir_path.join("banana.md"), "content").unwrap();
+
+        let result = list_markdown_files_in_dir(&dir_path.to_path_buf()).unwrap();
+
+        assert_eq!(
+            result,
+            vec![
+                "apple".to_string(),
+                "banana".to_string(),
+                "zebra".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn test_list_markdown_files_in_dir_nonexistent() {
+        let nonexistent = PathBuf::from("/nonexistent/path/that/does/not/exist");
+        let result = list_markdown_files_in_dir(&nonexistent).unwrap();
+        assert_eq!(result, Vec::<String>::new());
     }
 }

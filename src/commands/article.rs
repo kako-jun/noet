@@ -22,6 +22,62 @@ tags: []
 Write your article content here...
 "#;
 
+/// Helper function to create a NoteClient instance
+fn create_client() -> Result<NoteClient> {
+    let config = Config::load()?;
+    let credentials = Credentials::load()?;
+    NoteClient::new(config, credentials)
+}
+
+/// Helper function to parse status from frontmatter
+fn parse_status(frontmatter: &std::collections::HashMap<String, String>) -> Option<ArticleStatus> {
+    frontmatter.get("status").and_then(|s| match s.as_str() {
+        "published" => Some(ArticleStatus::Published),
+        "draft" => Some(ArticleStatus::Draft),
+        _ => None,
+    })
+}
+
+/// Helper function to parse tags from frontmatter
+fn parse_tags(frontmatter: &std::collections::HashMap<String, String>) -> Option<Vec<String>> {
+    frontmatter.get("tags").and_then(|t| {
+        let tags: Vec<_> = t
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if tags.is_empty() {
+            None
+        } else {
+            Some(tags)
+        }
+    })
+}
+
+/// Helper function to read and parse a markdown file
+fn load_markdown_file(
+    filepath: &Path,
+) -> Result<(std::collections::HashMap<String, String>, String)> {
+    if !filepath.exists() {
+        return Err(crate::error::NoetError::FileNotFound(
+            filepath.display().to_string(),
+        ));
+    }
+
+    let content = fs::read_to_string(filepath)?;
+    parse_markdown(&content)
+}
+
+/// Helper function to generate filename from title
+fn generate_filename(title: &str) -> String {
+    title
+        .to_lowercase()
+        .replace(" ", "-")
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-')
+        .collect()
+}
+
 pub async fn new_article(title: Option<String>, template_name: Option<String>) -> Result<()> {
     // Check if in workspace
     if !workspace::is_in_workspace() {
@@ -39,12 +95,7 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
             .interact_text()?,
     };
 
-    let filename = article_title
-        .to_lowercase()
-        .replace(" ", "-")
-        .chars()
-        .filter(|c| c.is_alphanumeric() || *c == '-')
-        .collect::<String>();
+    let filename = generate_filename(&article_title);
 
     // Create file in current directory
     let current_dir = env::current_dir()?;
@@ -81,14 +132,7 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
 }
 
 pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Result<()> {
-    if !filepath.exists() {
-        return Err(crate::error::NoetError::FileNotFound(
-            filepath.display().to_string(),
-        ));
-    }
-
-    let content = fs::read_to_string(filepath)?;
-    let (frontmatter, body) = parse_markdown(&content)?;
+    let (frontmatter, body) = load_markdown_file(filepath)?;
 
     let title = frontmatter
         .get("title")
@@ -98,24 +142,12 @@ pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Re
     let status = if as_draft {
         Some(ArticleStatus::Draft)
     } else {
-        frontmatter.get("status").and_then(|s| match s.as_str() {
-            "published" => Some(ArticleStatus::Published),
-            "draft" => Some(ArticleStatus::Draft),
-            _ => None,
-        })
+        parse_status(&frontmatter)
     };
 
-    let tags = frontmatter.get("tags").and_then(|t| {
-        t.split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>()
-            .into()
-    });
+    let tags = parse_tags(&frontmatter);
 
-    let config = Config::load()?;
-    let credentials = Credentials::load()?;
-    let client = NoteClient::new(config, credentials)?;
+    let client = create_client()?;
 
     // Check if this is an update (article_key or article_id exists in frontmatter)
     let article_key = frontmatter.get("article_key");
@@ -168,14 +200,7 @@ pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Re
 }
 
 pub async fn show_diff(filepath: &Path) -> Result<()> {
-    if !filepath.exists() {
-        return Err(crate::error::NoetError::FileNotFound(
-            filepath.display().to_string(),
-        ));
-    }
-
-    let content = fs::read_to_string(filepath)?;
-    let (frontmatter, body) = parse_markdown(&content)?;
+    let (frontmatter, body) = load_markdown_file(filepath)?;
 
     let title = frontmatter
         .get("title")
@@ -187,9 +212,7 @@ pub async fn show_diff(filepath: &Path) -> Result<()> {
         )
     })?;
 
-    let config = Config::load()?;
-    let credentials = Credentials::load()?;
-    let client = NoteClient::new(config, credentials)?;
+    let client = create_client()?;
 
     println!(
         "{}",
@@ -205,33 +228,13 @@ pub async fn show_diff(filepath: &Path) -> Result<()> {
 }
 
 pub async fn edit_article(article_id: &str, filepath: &Path) -> Result<()> {
-    if !filepath.exists() {
-        return Err(crate::error::NoetError::FileNotFound(
-            filepath.display().to_string(),
-        ));
-    }
-
-    let content = fs::read_to_string(filepath)?;
-    let (frontmatter, body) = parse_markdown(&content)?;
+    let (frontmatter, body) = load_markdown_file(filepath)?;
 
     let title = frontmatter.get("title").cloned();
-    let status = frontmatter.get("status").and_then(|s| match s.as_str() {
-        "published" => Some(ArticleStatus::Published),
-        "draft" => Some(ArticleStatus::Draft),
-        _ => None,
-    });
+    let status = parse_status(&frontmatter);
+    let tags = parse_tags(&frontmatter);
 
-    let tags = frontmatter.get("tags").and_then(|t| {
-        t.split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>()
-            .into()
-    });
-
-    let config = Config::load()?;
-    let credentials = Credentials::load()?;
-    let client = NoteClient::new(config, credentials)?;
+    let client = create_client()?;
 
     println!("{}", "Updating article on Note...".cyan());
 
@@ -259,9 +262,7 @@ pub async fn delete_article(article_id: &str, force: bool) -> Result<()> {
         }
     }
 
-    let config = Config::load()?;
-    let credentials = Credentials::load()?;
-    let client = NoteClient::new(config, credentials)?;
+    let client = create_client()?;
 
     println!("{}", "Deleting article...".cyan());
 
@@ -273,9 +274,7 @@ pub async fn delete_article(article_id: &str, force: bool) -> Result<()> {
 }
 
 pub async fn list_articles(username: &str, page: u32) -> Result<()> {
-    let config = Config::load()?;
-    let credentials = Credentials::load()?;
-    let client = NoteClient::new(config, credentials)?;
+    let client = create_client()?;
 
     println!("{}", "Fetching articles...".cyan());
 
@@ -427,5 +426,118 @@ title: Empty Body
         // Should handle malformed frontmatter gracefully
         assert!(frontmatter.is_empty());
         assert_eq!(body, "Body");
+    }
+
+    #[test]
+    fn test_parse_status_published() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("status".to_string(), "published".to_string());
+        assert_eq!(parse_status(&map), Some(ArticleStatus::Published));
+    }
+
+    #[test]
+    fn test_parse_status_draft() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("status".to_string(), "draft".to_string());
+        assert_eq!(parse_status(&map), Some(ArticleStatus::Draft));
+    }
+
+    #[test]
+    fn test_parse_status_invalid() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("status".to_string(), "invalid".to_string());
+        assert_eq!(parse_status(&map), None);
+    }
+
+    #[test]
+    fn test_parse_status_missing() {
+        let map = std::collections::HashMap::new();
+        assert_eq!(parse_status(&map), None);
+    }
+
+    #[test]
+    fn test_parse_tags_single() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("tags".to_string(), "rust".to_string());
+        assert_eq!(parse_tags(&map), Some(vec!["rust".to_string()]));
+    }
+
+    #[test]
+    fn test_parse_tags_multiple() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("tags".to_string(), "rust, cli, note".to_string());
+        assert_eq!(
+            parse_tags(&map),
+            Some(vec![
+                "rust".to_string(),
+                "cli".to_string(),
+                "note".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_tags_with_spaces() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("tags".to_string(), "  rust  ,  cli  ,  note  ".to_string());
+        assert_eq!(
+            parse_tags(&map),
+            Some(vec![
+                "rust".to_string(),
+                "cli".to_string(),
+                "note".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_tags_empty() {
+        let mut map = std::collections::HashMap::new();
+        map.insert("tags".to_string(), "".to_string());
+        assert_eq!(parse_tags(&map), None);
+    }
+
+    #[test]
+    fn test_parse_tags_missing() {
+        let map = std::collections::HashMap::new();
+        assert_eq!(parse_tags(&map), None);
+    }
+
+    #[test]
+    fn test_generate_filename_simple() {
+        assert_eq!(generate_filename("My Article"), "my-article");
+    }
+
+    #[test]
+    fn test_generate_filename_with_special_chars() {
+        assert_eq!(
+            generate_filename("Hello! World? (Test)"),
+            "hello-world-test"
+        );
+    }
+
+    #[test]
+    fn test_generate_filename_with_numbers() {
+        assert_eq!(generate_filename("Article 123"), "article-123");
+    }
+
+    #[test]
+    fn test_generate_filename_multiple_spaces() {
+        assert_eq!(generate_filename("Multiple   Spaces"), "multiple---spaces");
+    }
+
+    #[test]
+    fn test_generate_filename_japanese() {
+        // Japanese characters are kept as-is (unicode alphanumeric)
+        assert_eq!(generate_filename("日本語テスト"), "日本語テスト");
+    }
+
+    #[test]
+    fn test_generate_filename_mixed() {
+        // Mix of alphanumeric and special chars
+        assert_eq!(
+            generate_filename("Test 123 & Article!"),
+            "test-123--article"
+        );
     }
 }

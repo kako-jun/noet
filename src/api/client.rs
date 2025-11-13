@@ -47,75 +47,59 @@ impl NoteClient {
         })
     }
 
-    pub async fn get(&self, path: &str) -> Result<Response> {
-        let url = format!("{}{}", self.base_url, path);
+    /// Helper function to build URL from path
+    fn build_url(&self, path: &str) -> String {
+        format!("{}{}", self.base_url, path)
+    }
 
-        let mut request = self
-            .client
-            .get(&url)
-            .header("Cookie", &self.credentials.session_cookie);
+    /// Helper function to add authentication headers to a request
+    fn add_auth_headers(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        let mut request = builder.header("Cookie", &self.credentials.session_cookie);
 
         if let Some(ref csrf_token) = self.credentials.csrf_token {
             request = request.header("X-CSRF-Token", csrf_token);
         }
 
-        let response = request.send().await.map_err(NoetError::HttpError)?;
+        request
+    }
 
+    pub async fn get(&self, path: &str) -> Result<Response> {
+        let url = self.build_url(path);
+        let request = self.client.get(&url);
+        let request = self.add_auth_headers(request);
+        let response = request.send().await.map_err(NoetError::HttpError)?;
         Self::check_response(response).await
     }
 
     pub async fn post(&self, path: &str, body: impl serde::Serialize) -> Result<Response> {
-        let url = format!("{}{}", self.base_url, path);
-
-        let mut request = self
+        let url = self.build_url(path);
+        let request = self
             .client
             .post(&url)
-            .header("Cookie", &self.credentials.session_cookie)
             .header("Content-Type", "application/json")
             .json(&body);
-
-        if let Some(ref csrf_token) = self.credentials.csrf_token {
-            request = request.header("X-CSRF-Token", csrf_token);
-        }
-
+        let request = self.add_auth_headers(request);
         let response = request.send().await.map_err(NoetError::HttpError)?;
-
         Self::check_response(response).await
     }
 
     pub async fn put(&self, path: &str, body: impl serde::Serialize) -> Result<Response> {
-        let url = format!("{}{}", self.base_url, path);
-
-        let mut request = self
+        let url = self.build_url(path);
+        let request = self
             .client
             .put(&url)
-            .header("Cookie", &self.credentials.session_cookie)
             .header("Content-Type", "application/json")
             .json(&body);
-
-        if let Some(ref csrf_token) = self.credentials.csrf_token {
-            request = request.header("X-CSRF-Token", csrf_token);
-        }
-
+        let request = self.add_auth_headers(request);
         let response = request.send().await.map_err(NoetError::HttpError)?;
-
         Self::check_response(response).await
     }
 
     pub async fn delete(&self, path: &str) -> Result<Response> {
-        let url = format!("{}{}", self.base_url, path);
-
-        let mut request = self
-            .client
-            .delete(&url)
-            .header("Cookie", &self.credentials.session_cookie);
-
-        if let Some(ref csrf_token) = self.credentials.csrf_token {
-            request = request.header("X-CSRF-Token", csrf_token);
-        }
-
+        let url = self.build_url(path);
+        let request = self.client.delete(&url);
+        let request = self.add_auth_headers(request);
         let response = request.send().await.map_err(NoetError::HttpError)?;
-
         Self::check_response(response).await
     }
 

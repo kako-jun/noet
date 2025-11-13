@@ -5,6 +5,19 @@ use crate::models::{
 };
 use serde_json::json;
 
+/// Helper function to extract article from JSON response
+fn extract_article_from_response(json: serde_json::Value) -> Result<Article> {
+    if let Some(data) = json.get("data") {
+        let article: Article = serde_json::from_value(data.clone())?;
+        Ok(article)
+    } else {
+        Err(crate::error::NoetError::ApiError {
+            status: 500,
+            message: "Unexpected response format".to_string(),
+        })
+    }
+}
+
 impl NoteClient {
     /// Create a new article (draft or published)
     pub async fn create_article(
@@ -24,17 +37,7 @@ impl NoteClient {
 
         let response = self.post("/api/v1/text_notes", request).await?;
         let json: serde_json::Value = response.json().await?;
-
-        // Extract article data from response
-        if let Some(data) = json.get("data") {
-            let article: Article = serde_json::from_value(data.clone())?;
-            Ok(article)
-        } else {
-            Err(crate::error::NoetError::ApiError {
-                status: 500,
-                message: "Unexpected response format".to_string(),
-            })
-        }
+        extract_article_from_response(json)
     }
 
     /// Save article as draft
@@ -57,16 +60,7 @@ impl NoteClient {
 
         let response = self.post(&path, request).await?;
         let json: serde_json::Value = response.json().await?;
-
-        if let Some(data) = json.get("data") {
-            let article: Article = serde_json::from_value(data.clone())?;
-            Ok(article)
-        } else {
-            Err(crate::error::NoetError::ApiError {
-                status: 500,
-                message: "Unexpected response format".to_string(),
-            })
-        }
+        extract_article_from_response(json)
     }
 
     /// Update an existing article
@@ -88,16 +82,7 @@ impl NoteClient {
         let path = format!("/api/v1/text_notes/{}", article_id);
         let response = self.put(&path, request).await?;
         let json: serde_json::Value = response.json().await?;
-
-        if let Some(data) = json.get("data") {
-            let article: Article = serde_json::from_value(data.clone())?;
-            Ok(article)
-        } else {
-            Err(crate::error::NoetError::ApiError {
-                status: 500,
-                message: "Unexpected response format".to_string(),
-            })
-        }
+        extract_article_from_response(json)
     }
 
     /// Delete an article
@@ -113,14 +98,8 @@ impl NoteClient {
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
-        if let Some(data) = json.get("data") {
-            let article: Article = serde_json::from_value(data.clone())?;
-            Ok(article)
-        } else {
-            Err(crate::error::NoetError::ArticleNotFound(
-                article_key.to_string(),
-            ))
-        }
+        extract_article_from_response(json)
+            .map_err(|_| crate::error::NoetError::ArticleNotFound(article_key.to_string()))
     }
 
     /// List articles for a user
