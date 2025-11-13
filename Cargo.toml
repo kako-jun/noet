@@ -45,6 +45,9 @@ thiserror = "2.0"
 # Markdown parsing
 pulldown-cmark = "0.12"
 
+# HTML to Markdown conversion
+html2md = "0.2"
+
 # Date and time
 chrono = { version = "0.4", features = ["serde"] }
 

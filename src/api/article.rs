@@ -133,8 +133,15 @@ impl NoteClient {
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
-        extract_article_from_response(json)
-            .map_err(|_| crate::error::NoetError::ArticleNotFound(article_key.to_string()))
+        let mut article = extract_article_from_response(json)
+            .map_err(|_| crate::error::NoetError::ArticleNotFound(article_key.to_string()))?;
+
+        // Convert HTML body to Markdown
+        if !article.body.is_empty() {
+            article.body = crate::converters::convert_html_to_markdown(&article.body)?;
+        }
+
+        Ok(article)
     }
 
     /// List articles for a user

@@ -141,7 +141,9 @@ pub enum ArticleStatus {
 }
 ```
 
-## APIテスト結果（2025-11-14）
+## APIテスト結果
+
+### 最終更新: 2025-11-14
 
 実際のNote.com APIを使用したテスト結果を記録します。
 
@@ -158,6 +160,21 @@ pub enum ArticleStatus {
 - ユーザー名（表示名）: `kako-jun`（ハイフン）
 - **動作**: 正常（6件の公開記事を取得成功）
 
+#### 記事取得 (`get_article`) - **✅ 解決済み**
+- エンドポイント: `GET /api/v3/notes/{key}`
+- **動作**: 正常
+- **重要**: `body`フィールドは**HTML形式**で返される（Markdownではない）
+- **検証結果**:
+  - ✅ すべてのメタデータ（id, key, name, status, like_count, comment_countなど）が正しく取得できる
+  - ✅ 本文（body）はHTML形式で16,000文字以上取得できる
+  - ✅ 以前の「bodyが常に空」問題は再現せず
+- **HTML構造**:
+  - `<p name="uuid" id="uuid">テキスト<br>改行</p>` - 段落
+  - `<h2 name="uuid" id="uuid">見出し</h2>` - 見出し
+  - `<figure>` - 埋め込みコンテンツ（外部リンク、画像など）
+  - `<img src="..." alt="" width="" height="">` - 画像
+- **必要な対応**: HTML→Markdown変換ライブラリの導入が必要
+
 ### ❌ 動作しない・問題があるAPI
 
 #### 記事作成 (`create_article`)
@@ -169,20 +186,12 @@ pub enum ArticleStatus {
   - レスポンスの`body`フィールドが空文字列`""`
   - `is_draft: false`, `is_published: false`の状態
 - **対応**: ArticleStatusに空文字列を`Draft`として扱うカスタムデシリアライザーを実装
-- **要調査**: 本文を保存する正しいAPIエンドポイント・パラメータ
-
-#### 記事取得 (`get_article`)
-- エンドポイント: `GET /api/v3/notes/{key}`
-- **問題点**:
-  - APIレスポンスは返ってくる
-  - frontmatter（タイトル、ステータス、ID、keyなど）は取得できる
-  - しかし`body`フィールドが常に空文字列
-- **要調査**: 本文を取得する別のエンドポイントまたはパラメータの存在
+- **要調査**: 本文を保存する正しいAPIエンドポイント・パラメータ、HTML形式での送信が必要か
 
 #### 記事更新 (`update_article`)
 - エンドポイント: `PUT /api/v1/text_notes/{id}`
 - **問題点**: 422エラー「不正なパラメータが渡されました」
-- **要調査**: 正しいパラメータ形式、必須フィールド
+- **要調査**: 正しいパラメータ形式、必須フィールド、HTML形式での本文送信が必要か
 
 #### タグ一覧 (`tag list`)
 - エンドポイント: `GET /api/v2/hashtags?page={page}`
@@ -203,20 +212,27 @@ pub enum ArticleStatus {
 
 ### 今後の調査が必要な項目
 
-1. **記事本文の保存**:
+1. **HTML/Markdown変換**:
+   - ✅ 記事取得: HTML→Markdown変換ライブラリの導入（`html2md`や`html2text`など）
+   - 記事作成・更新: Markdown→HTML変換が必要か検証
+   - Note.com特有のHTML構造（name/id属性、figureタグなど）への対応
+
+2. **記事本文の保存**:
+   - HTML形式での本文送信が必要か
    - `POST /api/v1/text_notes/draft_save?id={id}` の使用方法
    - create後に即座にupdateが必要か
    - 別の本文保存用エンドポイントの存在
 
-2. **APIパラメータ形式**:
+3. **APIパラメータ形式**:
    - 各エンドポイントの正確な必須/オプションパラメータ
    - リクエストボディの正しいJSON構造
+   - bodyフィールドの正しい形式（HTML/Markdown/プレーンテキスト）
 
-3. **レスポンス形式**:
+4. **レスポンス形式**:
    - 各エンドポイントの実際のレスポンススキーマ
    - エラーレスポンスの形式
 
-4. **認証とセッション**:
+5. **認証とセッション**:
    - セッションクッキーの有効期限
    - XSRFトークンの取得と更新方法
 
@@ -434,6 +450,98 @@ mod tests {
     }
 }
 ```
+
+## HTML/Markdown変換
+
+**実装状況**: ✅ 実装済み（v0.1.3予定、HTML→Markdown変換のみ）
+
+### 最終更新: 2025-11-14
+
+### 実装完了内容
+
+1. **HTML→Markdown変換器** ✅
+   - `src/converters/html_to_md.rs` - 実装完了
+   - `html2md` ライブラリを使用
+   - Note.com特有のHTML構造に対応
+   - テスト5件追加（すべてパス）
+
+2. **get_articleメソッドへの統合** ✅
+   - `src/api/article.rs`の`get_article`メソッドを更新
+   - API取得後、自動的にHTML→Markdown変換を実行
+
+3. **依存関係の追加** ✅
+   - `Cargo.toml`に`html2md = "0.2"`を追加
+
+### 背景
+
+Note.com APIは記事本文を**HTML形式**で返し、おそらくHTML形式で受け取ります：
+- 取得時: HTML → Markdown変換 ✅ 実装済み
+- 作成・更新時: Markdown → HTML変換が必要（要検証）
+
+### Note.com特有のHTML構造
+
+```html
+<!-- 段落 -->
+<p name="uuid" id="uuid">テキスト<br>改行</p>
+
+<!-- 見出し -->
+<h2 name="uuid" id="uuid">見出しテキスト</h2>
+
+<!-- 画像 -->
+<img src="https://assets.st-note.com/img/..." alt="" width="620" height="224">
+
+<!-- 埋め込みコンテンツ（外部リンクなど） -->
+<figure name="uuid" id="uuid" data-src="..." embedded-service="external-article">
+  <a href="..." rel="nofollow noopener" target="_blank">
+    <strong>タイトル</strong>
+    <em>説明</em>
+  </a>
+</figure>
+```
+
+### 推奨ライブラリ
+
+1. **`html2md`** (https://crates.io/crates/html2md)
+   - 純粋なHTML→Markdown変換器
+   - 実績あり、アクティブに開発されている
+
+2. **`htmd`** (https://crates.io/crates/htmd)
+   - 軽量なHTML→Markdown変換
+
+### 実装方針
+
+1. **HTML→Markdown変換器の実装**:
+   - 新モジュール: `src/converters/html_to_md.rs`
+   - Note.com特有の構造（name/id属性、figureタグなど）の処理
+   - 標準的なMarkdownへの変換
+
+2. **Markdown→HTML変換器の実装** (作成・更新用):
+   - 新モジュール: `src/converters/md_to_html.rs`
+   - 既存の`pulldown-cmark`を使用
+   - Note.com要求のHTML形式への変換（name/id属性の生成など）
+
+3. **変換処理の統合**:
+   - `get_article`: レスポンスのHTML bodyをMarkdownに変換
+   - `create_article`/`update_article`: リクエストのMarkdown bodyをHTMLに変換（要検証）
+
+### 既知の問題
+
+**Articleデシリアライゼーションエラー** (要修正):
+- エラー: `missing field 'name'`
+- 状況: APIレスポンスには`name`フィールドが含まれているが、`Article`構造体へのデシリアライズに失敗
+- 試行: `#[serde(default)]`を追加したが未解決
+- 影響: エクスポート機能が動作しない
+- 優先度: 高（次のバージョンで修正が必要）
+
+### 参考にしたOSS
+
+**yamarkz/note2md** (Dart):
+- GitHubリポジトリ: https://github.com/yamarkz/note2md
+- 変換ロジック:
+  - `html/parser.dart`でHTML解析
+  - `data-src`属性で画像URL取得（遅延ロード対応）
+  - `<figure>`タグ内の`<a>`タグをリンクに変換
+  - `<br>`を改行、`<b>`を`**`に置換
 
 ## HTTPクライアント設定
 
