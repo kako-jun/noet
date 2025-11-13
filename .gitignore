@@ -3,9 +3,6 @@ target/
 **/*.rs.bk
 *.pdb
 
-# Cargo
-Cargo.lock
-
 # IDE
 .vscode/
 .idea/
