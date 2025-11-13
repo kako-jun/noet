@@ -114,16 +114,16 @@ async fn run() -> error::Result<()> {
 
         Commands::Template(template_cmd) => match template_cmd {
             TemplateCommands::List => {
-                commands::template::list_templates().await?;
+                commands::template::list_templates()?;
             }
             TemplateCommands::Add { name } => {
-                commands::template::add_template(&name).await?;
+                commands::template::add_template(&name)?;
             }
             TemplateCommands::Show { name } => {
-                commands::template::show_template(&name).await?;
+                commands::template::show_template(&name)?;
             }
             TemplateCommands::Remove { name } => {
-                commands::template::remove_template(&name).await?;
+                commands::template::remove_template(&name)?;
             }
         },
 

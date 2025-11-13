@@ -32,10 +32,40 @@ pub fn get_editor() -> Result<String> {
     return Ok("vim".to_string());
 }
 
+/// Parse editor command handling quoted arguments
+fn parse_editor_command(cmd: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut current_arg = String::new();
+    let mut in_quotes = false;
+
+    for c in cmd.chars() {
+        match c {
+            '"' | '\'' => {
+                in_quotes = !in_quotes;
+            }
+            ' ' if !in_quotes => {
+                if !current_arg.is_empty() {
+                    args.push(current_arg.clone());
+                    current_arg.clear();
+                }
+            }
+            _ => {
+                current_arg.push(c);
+            }
+        }
+    }
+
+    if !current_arg.is_empty() {
+        args.push(current_arg);
+    }
+
+    args
+}
+
 /// Open a file in the configured editor
 pub fn open_in_editor<P: AsRef<Path>>(filepath: P) -> Result<()> {
     let editor_cmd = get_editor()?;
-    let parts: Vec<&str> = editor_cmd.split_whitespace().collect();
+    let parts = parse_editor_command(&editor_cmd);
 
     if parts.is_empty() {
         return Err(NoetError::ConfigError(
@@ -43,8 +73,8 @@ pub fn open_in_editor<P: AsRef<Path>>(filepath: P) -> Result<()> {
         ));
     }
 
-    let editor = parts[0];
-    let args: Vec<&str> = parts[1..].to_vec();
+    let editor = &parts[0];
+    let args: Vec<&str> = parts[1..].iter().map(|s| s.as_str()).collect();
 
     let mut command = Command::new(editor);
     command.args(args);
@@ -74,5 +104,47 @@ mod tests {
         let editor = get_editor();
         assert!(editor.is_ok());
         assert!(!editor.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_parse_editor_command_simple() {
+        let cmd = "vim";
+        let parts = parse_editor_command(cmd);
+        assert_eq!(parts, vec!["vim"]);
+    }
+
+    #[test]
+    fn test_parse_editor_command_with_args() {
+        let cmd = "code -w -n";
+        let parts = parse_editor_command(cmd);
+        assert_eq!(parts, vec!["code", "-w", "-n"]);
+    }
+
+    #[test]
+    fn test_parse_editor_command_with_double_quotes() {
+        let cmd = r#"code -w "/path/with spaces/file.txt""#;
+        let parts = parse_editor_command(cmd);
+        assert_eq!(parts, vec!["code", "-w", "/path/with spaces/file.txt"]);
+    }
+
+    #[test]
+    fn test_parse_editor_command_with_single_quotes() {
+        let cmd = r#"vim '+set number' -c 'echo hello'"#;
+        let parts = parse_editor_command(cmd);
+        assert_eq!(parts, vec!["vim", "+set number", "-c", "echo hello"]);
+    }
+
+    #[test]
+    fn test_parse_editor_command_empty() {
+        let cmd = "";
+        let parts = parse_editor_command(cmd);
+        assert_eq!(parts, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_parse_editor_command_multiple_spaces() {
+        let cmd = "code  -w   -n";
+        let parts = parse_editor_command(cmd);
+        assert_eq!(parts, vec!["code", "-w", "-n"]);
     }
 }

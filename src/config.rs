@@ -1,4 +1,5 @@
 use crate::error::{NoetError, Result};
+use crate::workspace;
 use dirs::config_dir;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -42,7 +43,21 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Load configuration with workspace config taking precedence over global config
     pub fn load() -> Result<Self> {
+        // Load global config
+        let mut config = Self::load_global()?;
+
+        // Try to load workspace config and merge
+        if let Ok(workspace_config) = Self::load_workspace() {
+            config = config.merge(workspace_config);
+        }
+
+        Ok(config)
+    }
+
+    /// Load global configuration only
+    fn load_global() -> Result<Self> {
         let config_path = Self::config_path()?;
 
         if !config_path.exists() {
@@ -56,6 +71,40 @@ impl Config {
 
         let config: Config = toml::from_str(&content)?;
         Ok(config)
+    }
+
+    /// Load workspace configuration (.noet/config.toml)
+    fn load_workspace() -> Result<Self> {
+        let workspace_root = workspace::find_workspace_root()?;
+        let workspace_config_path = workspace_root.join(".noet").join(CONFIG_FILE);
+
+        if !workspace_config_path.exists() {
+            return Err(NoetError::ConfigError(
+                "Workspace config not found".to_string(),
+            ));
+        }
+
+        let content = fs::read_to_string(&workspace_config_path).map_err(|e| {
+            NoetError::ConfigError(format!("Failed to read workspace config: {}", e))
+        })?;
+
+        let config: Config = toml::from_str(&content)?;
+        Ok(config)
+    }
+
+    /// Merge two configs, with other taking precedence
+    fn merge(self, other: Self) -> Self {
+        Self {
+            default_status: other.default_status.or(self.default_status),
+            default_tags: other.default_tags.or(self.default_tags),
+            editor: other.editor.or(self.editor),
+            username: other.username.or(self.username),
+            base_url: if other.base_url != default_base_url() {
+                other.base_url
+            } else {
+                self.base_url
+            },
+        }
     }
 
     pub fn save(&self) -> Result<()> {
@@ -110,5 +159,57 @@ mod tests {
         let toml_str = toml::to_string(&config).unwrap();
         let deserialized: Config = toml::from_str(&toml_str).unwrap();
         assert_eq!(config.base_url, deserialized.base_url);
+    }
+
+    #[test]
+    fn test_config_merge_workspace_takes_precedence() {
+        let global = Config {
+            default_status: Some("draft".to_string()),
+            default_tags: Some(vec!["global".to_string()]),
+            editor: Some("vim".to_string()),
+            username: Some("global-user".to_string()),
+            base_url: "https://note.com".to_string(),
+        };
+
+        let workspace = Config {
+            default_status: Some("published".to_string()),
+            default_tags: None,
+            editor: None,
+            username: Some("workspace-user".to_string()),
+            base_url: "https://note.com".to_string(),
+        };
+
+        let merged = global.merge(workspace);
+
+        assert_eq!(merged.default_status, Some("published".to_string()));
+        assert_eq!(merged.default_tags, Some(vec!["global".to_string()]));
+        assert_eq!(merged.editor, Some("vim".to_string()));
+        assert_eq!(merged.username, Some("workspace-user".to_string()));
+    }
+
+    #[test]
+    fn test_config_merge_preserves_global_when_workspace_empty() {
+        let global = Config {
+            default_status: Some("draft".to_string()),
+            default_tags: Some(vec!["tag1".to_string()]),
+            editor: Some("code".to_string()),
+            username: Some("user".to_string()),
+            base_url: "https://note.com".to_string(),
+        };
+
+        let workspace = Config {
+            default_status: None,
+            default_tags: None,
+            editor: None,
+            username: None,
+            base_url: "https://note.com".to_string(),
+        };
+
+        let merged = global.merge(workspace);
+
+        assert_eq!(merged.default_status, Some("draft".to_string()));
+        assert_eq!(merged.default_tags, Some(vec!["tag1".to_string()]));
+        assert_eq!(merged.editor, Some("code".to_string()));
+        assert_eq!(merged.username, Some("user".to_string()));
     }
 }
