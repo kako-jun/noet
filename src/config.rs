@@ -18,6 +18,9 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub editor: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+
     #[serde(default = "default_base_url")]
     pub base_url: String,
 }
@@ -32,6 +35,7 @@ impl Default for Config {
             default_status: Some("draft".to_string()),
             default_tags: None,
             editor: None,
+            username: None,
             base_url: default_base_url(),
         }
     }
