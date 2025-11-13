@@ -1,6 +1,8 @@
 use crate::api::client::NoteClient;
 use crate::error::Result;
-use crate::models::{Article, ArticleListResponse, ArticleStatus, CreateArticleRequest, UpdateArticleRequest};
+use crate::models::{
+    Article, ArticleListResponse, ArticleStatus, CreateArticleRequest, UpdateArticleRequest,
+};
 use serde_json::json;
 
 impl NoteClient {
@@ -36,7 +38,13 @@ impl NoteClient {
     }
 
     /// Save article as draft
-    pub async fn save_draft(&self, id: Option<String>, name: String, body: String) -> Result<Article> {
+    #[allow(dead_code)]
+    pub async fn save_draft(
+        &self,
+        id: Option<String>,
+        name: String,
+        body: String,
+    ) -> Result<Article> {
         let mut path = "/api/v1/text_notes/draft_save".to_string();
         if let Some(article_id) = id {
             path = format!("{}?id={}", path, article_id);
@@ -100,6 +108,7 @@ impl NoteClient {
     }
 
     /// Get article details
+    #[allow(dead_code)]
     pub async fn get_article(&self, article_key: &str) -> Result<Article> {
         let path = format!("/api/v3/notes/{}", article_key);
         let response = self.get(&path).await?;
@@ -109,13 +118,18 @@ impl NoteClient {
             let article: Article = serde_json::from_value(data.clone())?;
             Ok(article)
         } else {
-            Err(crate::error::NoetError::ArticleNotFound(article_key.to_string()))
+            Err(crate::error::NoetError::ArticleNotFound(
+                article_key.to_string(),
+            ))
         }
     }
 
     /// List articles for a user
     pub async fn list_articles(&self, username: &str, page: u32) -> Result<Vec<Article>> {
-        let path = format!("/api/v2/creators/{}/contents?kind=note&page={}", username, page);
+        let path = format!(
+            "/api/v2/creators/{}/contents?kind=note&page={}",
+            username, page
+        );
         let response = self.get(&path).await?;
         let list_response: ArticleListResponse = response.json().await?;
 
@@ -123,8 +137,13 @@ impl NoteClient {
     }
 
     /// Search articles by keyword
+    #[allow(dead_code)]
     pub async fn search_articles(&self, query: &str, page: u32) -> Result<Vec<Article>> {
-        let path = format!("/api/v3/searches?context=note&q={}&start={}", query, page * 10);
+        let path = format!(
+            "/api/v3/searches?context=note&q={}&start={}",
+            query,
+            page * 10
+        );
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 

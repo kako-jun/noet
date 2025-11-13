@@ -38,7 +38,10 @@ pub async fn status() -> Result<()> {
     if Credentials::exists() {
         let credentials = Credentials::load()?;
         println!("{}", "✓ Authenticated".green());
-        println!("\nSession cookie: {}", mask_cookie(&credentials.session_cookie));
+        println!(
+            "\nSession cookie: {}",
+            mask_cookie(&credentials.session_cookie)
+        );
 
         if let Some(ref csrf) = credentials.csrf_token {
             println!("CSRF token: {}", mask_token(csrf));

@@ -261,6 +261,37 @@ pub enum NoetError {
 }
 ```
 
+## 開発環境のセットアップ
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/kako-jun/noet.git
+cd noet
+
+# 依存関係をインストール（cargo-huskyが自動的にgit hooksをインストール）
+cargo build
+```
+
+`cargo build`を実行すると、`cargo-husky`が自動的にGit hooksをインストールします。
+
+### コード整形とLint
+
+```bash
+# コードを整形
+cargo fmt
+
+# Lintチェック
+cargo clippy --all-targets --all-features -- -D warnings
+```
+
+### Git Hooks
+
+`cargo-husky`により、コミット時に以下が自動実行されます：
+
+- **pre-commit**: `cargo fmt --check` と `cargo clippy`
+
+これにより、フォーマットされていないコードやlint警告のあるコードはコミットできません。
+
 ## テスト戦略
 
 ### 手動テスト

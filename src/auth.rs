@@ -22,20 +22,19 @@ impl Credentials {
 
     /// Save credentials to system keyring
     pub fn save(&self) -> Result<()> {
-        let cookie_entry = Entry::new(SERVICE_NAME, COOKIE_KEY)
-            .map_err(|e| NoetError::KeyringError(e))?;
+        let cookie_entry = Entry::new(SERVICE_NAME, COOKIE_KEY).map_err(NoetError::KeyringError)?;
 
         cookie_entry
             .set_password(&self.session_cookie)
-            .map_err(|e| NoetError::KeyringError(e))?;
+            .map_err(NoetError::KeyringError)?;
 
         if let Some(ref csrf_token) = self.csrf_token {
-            let csrf_entry = Entry::new(SERVICE_NAME, CSRF_TOKEN_KEY)
-                .map_err(|e| NoetError::KeyringError(e))?;
+            let csrf_entry =
+                Entry::new(SERVICE_NAME, CSRF_TOKEN_KEY).map_err(NoetError::KeyringError)?;
 
             csrf_entry
                 .set_password(csrf_token)
-                .map_err(|e| NoetError::KeyringError(e))?;
+                .map_err(NoetError::KeyringError)?;
         }
 
         Ok(())
@@ -43,12 +42,14 @@ impl Credentials {
 
     /// Load credentials from system keyring
     pub fn load() -> Result<Self> {
-        let cookie_entry = Entry::new(SERVICE_NAME, COOKIE_KEY)
-            .map_err(|e| NoetError::KeyringError(e))?;
+        let cookie_entry = Entry::new(SERVICE_NAME, COOKIE_KEY).map_err(NoetError::KeyringError)?;
 
-        let session_cookie = cookie_entry
-            .get_password()
-            .map_err(|e| NoetError::AuthError(format!("Not authenticated. Please run 'noet auth login' first. Error: {}", e)))?;
+        let session_cookie = cookie_entry.get_password().map_err(|e| {
+            NoetError::AuthError(format!(
+                "Not authenticated. Please run 'noet auth login' first. Error: {}",
+                e
+            ))
+        })?;
 
         let csrf_token = Entry::new(SERVICE_NAME, CSRF_TOKEN_KEY)
             .and_then(|entry| entry.get_password())
@@ -69,16 +70,15 @@ impl Credentials {
 
     /// Delete credentials from system keyring
     pub fn delete() -> Result<()> {
-        let cookie_entry = Entry::new(SERVICE_NAME, COOKIE_KEY)
-            .map_err(|e| NoetError::KeyringError(e))?;
+        let cookie_entry = Entry::new(SERVICE_NAME, COOKIE_KEY).map_err(NoetError::KeyringError)?;
 
         cookie_entry
             .delete_credential()
-            .map_err(|e| NoetError::KeyringError(e))?;
+            .map_err(NoetError::KeyringError)?;
 
         // Try to delete CSRF token, but don't fail if it doesn't exist
-        let _ = Entry::new(SERVICE_NAME, CSRF_TOKEN_KEY)
-            .and_then(|entry| entry.delete_credential());
+        let _ =
+            Entry::new(SERVICE_NAME, CSRF_TOKEN_KEY).and_then(|entry| entry.delete_credential());
 
         Ok(())
     }

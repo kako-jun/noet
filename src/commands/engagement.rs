@@ -47,7 +47,14 @@ pub async fn show_comments(note_id: &str) -> Result<()> {
     for comment in comments {
         println!("{}", comment.user.nickname.bold());
         println!("  {}", comment.body);
-        println!("  {}", comment.created_at.format("%Y-%m-%d %H:%M").to_string().dimmed());
+        println!(
+            "  {}",
+            comment
+                .created_at
+                .format("%Y-%m-%d %H:%M")
+                .to_string()
+                .dimmed()
+        );
         println!();
     }
 

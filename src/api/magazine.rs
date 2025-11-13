@@ -5,6 +5,7 @@ use serde_json::json;
 
 impl NoteClient {
     /// Get magazine details
+    #[allow(dead_code)]
     pub async fn get_magazine(&self, magazine_key: &str) -> Result<Magazine> {
         let path = format!("/api/v1/magazines/{}", magazine_key);
         let response = self.get(&path).await?;
@@ -22,7 +23,12 @@ impl NoteClient {
     }
 
     /// Add article to magazine
-    pub async fn add_to_magazine(&self, magazine_key: &str, note_id: &str, note_key: &str) -> Result<()> {
+    pub async fn add_to_magazine(
+        &self,
+        magazine_key: &str,
+        note_id: &str,
+        note_key: &str,
+    ) -> Result<()> {
         let path = format!("/api/v1/our/magazines/{}/notes", magazine_key);
         let body = json!({
             "note_id": note_id,
@@ -41,8 +47,13 @@ impl NoteClient {
     }
 
     /// Search magazines
+    #[allow(dead_code)]
     pub async fn search_magazines(&self, query: &str, page: u32) -> Result<Vec<Magazine>> {
-        let path = format!("/api/v3/searches?context=magazine&q={}&start={}", query, page * 10);
+        let path = format!(
+            "/api/v3/searches?context=magazine&q={}&start={}",
+            query,
+            page * 10
+        );
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 

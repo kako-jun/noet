@@ -11,7 +11,9 @@ pub async fn add_to_magazine(magazine_key: &str, note_id: &str, note_key: &str) 
 
     println!("{}", "Adding article to magazine...".cyan());
 
-    client.add_to_magazine(magazine_key, note_id, note_key).await?;
+    client
+        .add_to_magazine(magazine_key, note_id, note_key)
+        .await?;
 
     println!(
         "{} Article added to magazine '{}'",
