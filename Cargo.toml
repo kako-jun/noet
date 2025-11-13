@@ -1,9 +1,9 @@
 [package]
 name = "noet"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["kako-jun"]
-description = "A fast CLI tool for managing Note.com articles from your terminal (Rust)"
+description = "CLI tool for managing Note.com blog articles with Markdown. Create, publish, and export articles from your terminal with rate limiting and Japanese UI."
 license = "MIT"
 repository = "https://github.com/kako-jun/noet"
 homepage = "https://github.com/kako-jun/noet"

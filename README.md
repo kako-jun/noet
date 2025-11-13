@@ -3,7 +3,10 @@
 > note.comをターミナルから操作する、Rust製の高速CLIツール
 
 [![CI](https://github.com/kako-jun/noet/actions/workflows/ci.yml/badge.svg)](https://github.com/kako-jun/noet/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/noet.svg)](https://crates.io/crates/noet)
+[![Downloads](https://img.shields.io/crates/d/noet.svg)](https://crates.io/crates/noet)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
 
 [note.com](https://note.com) の記事を管理するためのコマンドラインツール（Rust製）。
 
@@ -46,40 +49,53 @@
 
 ## インストール
 
-### バイナリをダウンロード（推奨）
+### Cargoからインストール（推奨）
+
+Rustがインストールされている場合、最も簡単な方法です：
+
+```bash
+cargo install noet
+```
+
+### バイナリをダウンロード
 
 [GitHub Releases](https://github.com/kako-jun/noet/releases)から、お使いのOSに対応したバイナリをダウンロードしてください。
 
-**Linux (x86_64)**
+<details>
+<summary>Linux (x86_64)</summary>
+
 ```bash
 wget https://github.com/kako-jun/noet/releases/latest/download/noet-linux-amd64.tar.gz
 tar xzf noet-linux-amd64.tar.gz
 sudo mv noet /usr/local/bin/
 ```
+</details>
 
-**macOS (Intel)**
+<details>
+<summary>macOS (Intel)</summary>
+
 ```bash
 curl -LO https://github.com/kako-jun/noet/releases/latest/download/noet-macos-amd64.tar.gz
 tar xzf noet-macos-amd64.tar.gz
 sudo mv noet /usr/local/bin/
 ```
+</details>
 
-**macOS (Apple Silicon)**
+<details>
+<summary>macOS (Apple Silicon)</summary>
+
 ```bash
 curl -LO https://github.com/kako-jun/noet/releases/latest/download/noet-macos-arm64.tar.gz
 tar xzf noet-macos-arm64.tar.gz
 sudo mv noet /usr/local/bin/
 ```
+</details>
 
-**Windows**
+<details>
+<summary>Windows</summary>
 
 [noet-windows-amd64.zip](https://github.com/kako-jun/noet/releases/latest/download/noet-windows-amd64.zip)をダウンロードして展開し、パスを通してください。
-
-### Cargoからインストール（近日公開予定）
-
-```bash
-cargo install noet
-```
+</details>
 
 ### ソースからビルド
 
