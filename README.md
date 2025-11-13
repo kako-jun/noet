@@ -358,7 +358,7 @@ export HTTPS_PROXY=https://proxy.example.com:8080
   - Linux: OSレベルの暗号化（libsecret）
   - Windows: DPAPI（Data Protection API）
 - **平文保存なし**: セッションクッキーは平文ファイルに保存されません
-- **CSRF保護**: CSRFトークンは自動的に管理されます
+- **XSRF保護**: XSRFトークンは自動的に管理されます
 
 ## 開発
 

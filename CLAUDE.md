@@ -52,7 +52,7 @@ https://note.com
 
 Cookieベースの認証を使用：
 - **セッションCookie**: `_note_session_v5` (必須)
-- **CSRFトークン**: `X-CSRF-Token` ヘッダー (オプションだが推奨)
+- **XSRFトークン**: `X-XSRF-TOKEN` ヘッダー (オプションだが推奨)
 
 ### APIエンドポイント
 
@@ -361,7 +361,7 @@ mod tests {
 `NoteClient`は`reqwest`を使用し、以下の設定：
 - 30秒のタイムアウト
 - Cookieストレージ
-- CSRFトークン挿入
+- XSRFトークン挿入
 - プロキシサポート（HTTP_PROXY/HTTPS_PROXY環境変数）
 - カスタムエラーハンドリング
 
@@ -506,7 +506,7 @@ cargo build --release --target x86_64-pc-windows-gnu
   - システムキーリングに保存（OSレベルで暗号化）
   - macOS: AES-256、Linux: libsecret、Windows: DPAPI
   - アプリケーションレベルでの追加暗号化は行っていない（OSの暗号化で十分）
-- **CSRF保護**: 可能な場合は常にCSRFトークンを含める
+- **XSRF保護**: 可能な場合は常にXSRFトークンを含める
 - **入力検証**: API呼び出し前にユーザー入力をサニタイズ
 - **レート制限**: 不正利用とIPバンを防ぐ
 - **エラーメッセージ**: 機密情報を漏らさない

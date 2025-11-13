@@ -4,29 +4,29 @@ use serde::{Deserialize, Serialize};
 
 const SERVICE_NAME: &str = "noet";
 const COOKIE_KEY: &str = "note_session_cookie";
-const CSRF_TOKEN_KEY: &str = "note_csrf_token";
+const XSRF_TOKEN_KEY: &str = "note_xsrf_token";
 
 /// Helper function to get keyring entry for session cookie
 fn get_cookie_entry() -> Result<Entry> {
     Entry::new(SERVICE_NAME, COOKIE_KEY).map_err(NoetError::KeyringError)
 }
 
-/// Helper function to get keyring entry for CSRF token
-fn get_csrf_entry() -> Result<Entry> {
-    Entry::new(SERVICE_NAME, CSRF_TOKEN_KEY).map_err(NoetError::KeyringError)
+/// Helper function to get keyring entry for XSRF token
+fn get_xsrf_entry() -> Result<Entry> {
+    Entry::new(SERVICE_NAME, XSRF_TOKEN_KEY).map_err(NoetError::KeyringError)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Credentials {
     pub session_cookie: String,
-    pub csrf_token: Option<String>,
+    pub xsrf_token: Option<String>,
 }
 
 impl Credentials {
-    pub fn new(session_cookie: String, csrf_token: Option<String>) -> Self {
+    pub fn new(session_cookie: String, xsrf_token: Option<String>) -> Self {
         Self {
             session_cookie,
-            csrf_token,
+            xsrf_token,
         }
     }
 
@@ -37,10 +37,10 @@ impl Credentials {
             .set_password(&self.session_cookie)
             .map_err(NoetError::KeyringError)?;
 
-        if let Some(ref csrf_token) = self.csrf_token {
-            let csrf_entry = get_csrf_entry()?;
-            csrf_entry
-                .set_password(csrf_token)
+        if let Some(ref xsrf_token) = self.xsrf_token {
+            let xsrf_entry = get_xsrf_entry()?;
+            xsrf_entry
+                .set_password(xsrf_token)
                 .map_err(NoetError::KeyringError)?;
         }
 
@@ -57,13 +57,13 @@ impl Credentials {
             ))
         })?;
 
-        let csrf_token = get_csrf_entry()
+        let xsrf_token = get_xsrf_entry()
             .and_then(|entry| entry.get_password().map_err(NoetError::KeyringError))
             .ok();
 
         Ok(Self {
             session_cookie,
-            csrf_token,
+            xsrf_token,
         })
     }
 
@@ -81,8 +81,8 @@ impl Credentials {
             .delete_credential()
             .map_err(NoetError::KeyringError)?;
 
-        // Try to delete CSRF token, but don't fail if it doesn't exist
-        let _ = get_csrf_entry()
+        // Try to delete XSRF token, but don't fail if it doesn't exist
+        let _ = get_xsrf_entry()
             .and_then(|entry| entry.delete_credential().map_err(NoetError::KeyringError));
 
         Ok(())
@@ -97,10 +97,10 @@ mod tests {
     fn test_credentials_creation() {
         let creds = Credentials::new(
             "_note_session_v5=test_session".to_string(),
-            Some("test_csrf_token".to_string()),
+            Some("test_xsrf_token".to_string()),
         );
 
         assert_eq!(creds.session_cookie, "_note_session_v5=test_session");
-        assert_eq!(creds.csrf_token, Some("test_csrf_token".to_string()));
+        assert_eq!(creds.xsrf_token, Some("test_xsrf_token".to_string()));
     }
 }
