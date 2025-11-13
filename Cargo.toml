@@ -1,14 +1,22 @@
 [package]
 name = "noet"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["kako-jun"]
-description = "A CLI tool for Note blog service"
+description = "A fast CLI tool for managing Note.com articles from your terminal (Rust)"
 license = "MIT"
 repository = "https://github.com/kako-jun/noet"
+homepage = "https://github.com/kako-jun/noet"
+documentation = "https://github.com/kako-jun/noet#readme"
 readme = "README.md"
-keywords = ["cli", "note", "blog"]
+keywords = ["cli", "note", "blog", "markdown", "note-com"]
 categories = ["command-line-utilities"]
+exclude = [
+    ".github/",
+    ".gitignore",
+    "*.md",
+    "!README.md",
+]
 
 [[bin]]
 name = "noet"
