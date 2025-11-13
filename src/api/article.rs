@@ -108,7 +108,6 @@ impl NoteClient {
     }
 
     /// Get article details
-    #[allow(dead_code)]
     pub async fn get_article(&self, article_key: &str) -> Result<Article> {
         let path = format!("/api/v3/notes/{}", article_key);
         let response = self.get(&path).await?;
