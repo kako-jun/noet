@@ -4,10 +4,12 @@ use crate::commands::template;
 use crate::config::Config;
 use crate::error::Result;
 use crate::models::{Article, ArticleStatus};
+use crate::workspace;
 use colored::Colorize;
 use dialoguer::{Confirm, Input};
+use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 const ARTICLE_TEMPLATE: &str = r#"---
 title: {title}
@@ -21,6 +23,15 @@ Write your article content here...
 "#;
 
 pub async fn new_article(title: Option<String>, template_name: Option<String>) -> Result<()> {
+    // Check if in workspace
+    if !workspace::is_in_workspace() {
+        println!(
+            "{} Not in a noet workspace. Run {} to initialize.",
+            "Warning:".yellow(),
+            "noet init".cyan()
+        );
+    }
+
     let article_title = match title {
         Some(t) => t,
         None => Input::<String>::new()
@@ -35,7 +46,9 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
         .filter(|c| c.is_alphanumeric() || *c == '-')
         .collect::<String>();
 
-    let filepath = PathBuf::from(format!("{}.md", filename));
+    // Create file in current directory
+    let current_dir = env::current_dir()?;
+    let filepath = current_dir.join(format!("{}.md", filename));
 
     if filepath.exists() {
         let overwrite = Confirm::new()

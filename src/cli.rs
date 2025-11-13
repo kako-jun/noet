@@ -12,6 +12,12 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Initialize a noet working directory
+    Init {
+        /// Directory path (default: current directory)
+        path: Option<PathBuf>,
+    },
+
     /// Create a new article
     New {
         /// Article title

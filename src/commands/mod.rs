@@ -6,3 +6,4 @@ pub mod magazine;
 pub mod tag;
 pub mod template;
 pub mod user;
+pub mod workspace;
