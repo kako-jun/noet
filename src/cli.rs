@@ -89,6 +89,28 @@ pub enum Commands {
         username: String,
     },
 
+    /// Export articles to markdown files
+    Export {
+        /// Article key to export (if not specified, exports all articles)
+        article_key: Option<String>,
+
+        /// Export all articles from user
+        #[arg(long)]
+        all: bool,
+
+        /// Username (required when using --all)
+        #[arg(long)]
+        username: Option<String>,
+
+        /// Output file path (for single article) or directory (for multiple articles)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Start page for bulk export (default: 1)
+        #[arg(long, default_value = "1")]
+        page: u32,
+    },
+
     /// Authentication commands
     #[command(subcommand)]
     Auth(AuthCommands),

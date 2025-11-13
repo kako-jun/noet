@@ -82,6 +82,16 @@ async fn run() -> error::Result<()> {
             commands::user::show_user_info(&username).await?;
         }
 
+        Commands::Export {
+            article_key,
+            all,
+            username,
+            output,
+            page,
+        } => {
+            commands::export::export_articles(article_key, all, username, output, page).await?;
+        }
+
         Commands::Auth(auth_cmd) => match auth_cmd {
             AuthCommands::Login => {
                 commands::auth::login().await?;
