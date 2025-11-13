@@ -163,6 +163,32 @@ pub fn load_template(name: &str, title: &str) -> Result<String> {
     Ok(content)
 }
 
+pub fn list_template_names() -> Result<Vec<String>> {
+    let template_dir = get_template_dir()?;
+
+    if !template_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let entries = fs::read_dir(&template_dir)?;
+    let mut templates: Vec<String> = entries
+        .filter_map(|entry| {
+            entry.ok().and_then(|e| {
+                let path = e.path();
+                if path.is_file() && path.extension()? == "md" {
+                    path.file_stem()?.to_str().map(String::from)
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+
+    templates.sort();
+
+    Ok(templates)
+}
+
 fn get_template_dir() -> Result<PathBuf> {
     // Try workspace templates first
     if workspace::is_in_workspace() {

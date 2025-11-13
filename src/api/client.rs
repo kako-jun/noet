@@ -7,6 +7,7 @@ use std::time::Duration;
 pub struct NoteClient {
     client: Client,
     base_url: String,
+    config: Config,
     credentials: Credentials,
 }
 
@@ -28,11 +29,21 @@ impl NoteClient {
         }
 
         let client = client_builder.build().map_err(NoetError::HttpError)?;
+        let base_url = config.base_url.clone();
 
         Ok(Self {
             client,
-            base_url: config.base_url,
+            base_url,
+            config,
             credentials,
+        })
+    }
+
+    pub fn get_username(&self) -> Result<String> {
+        self.config.username.clone().ok_or_else(|| {
+            NoetError::ConfigError(
+                "Username not configured. Please set username in config.toml".to_string(),
+            )
         })
     }
 

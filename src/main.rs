@@ -3,6 +3,7 @@ mod auth;
 mod cli;
 mod commands;
 mod config;
+mod editor;
 mod error;
 mod models;
 mod tui_diff;
@@ -25,7 +26,16 @@ async fn main() {
 async fn run() -> error::Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
+    // If no command provided, run interactive mode
+    let command = match cli.command {
+        Some(cmd) => cmd,
+        None => {
+            commands::interactive::run_interactive_mode().await?;
+            return Ok(());
+        }
+    };
+
+    match command {
         Commands::Init { path } => {
             commands::workspace::init(path).await?;
         }
