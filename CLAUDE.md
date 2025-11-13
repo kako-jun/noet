@@ -14,12 +14,15 @@ src/
 ├── auth.rs           # システムキーリングによる認証情報保存
 ├── error.rs          # thiserrorによるカスタムエラー型
 ├── models.rs         # API用のSerdeデータ構造
+├── editor.rs         # エディタ起動と設定管理
+├── tui_diff.rs       # TUI差分表示
+├── workspace.rs      # ワークスペース管理
 ├── api/              # Note APIクライアント実装
 │   ├── mod.rs
 │   ├── client.rs     # reqwestベースのHTTPクライアント
 │   ├── article.rs    # 記事CRUD操作
 │   ├── tag.rs        # ハッシュタグ操作
-│   ├── magazine.rs   # マガジン操作
+│   ├── magazine.rs   # マガジン管理操作
 │   ├── engagement.rs # いいね・コメント操作
 │   ├── user.rs       # ユーザープロフィール操作
 │   └── analytics.rs  # 統計情報操作
@@ -30,7 +33,11 @@ src/
     ├── magazine.rs   # マガジン管理コマンド
     ├── engagement.rs # エンゲージメントコマンド
     ├── user.rs       # ユーザー情報コマンド
-    └── auth.rs       # 認証コマンド
+    ├── auth.rs       # 認証コマンド
+    ├── export.rs     # エクスポート機能
+    ├── template.rs   # テンプレート管理
+    ├── workspace.rs  # ワークスペース初期化
+    └── interactive.rs # インタラクティブモード
 ```
 
 ## Note非公式API仕様
@@ -146,8 +153,21 @@ pub enum ArticleStatus {
 ```toml
 default_status = "draft"
 default_tags = []
+editor = "code -w"          # エディタコマンド（オプション）
+username = "your-username"   # ユーザー名（オプション）
 base_url = "https://note.com"
 ```
+
+### エディタ設定
+
+エディタは以下の優先順位で決定されます：
+
+1. `config.toml`の`editor`フィールド
+2. 環境変数`$VISUAL`
+3. 環境変数`$EDITOR`
+4. プラットフォームデフォルト（vim/notepad/open -e）
+
+**VSCodeの場合**: `editor = "code -w"` (`-w`は編集完了まで待機)
 
 ## 認証情報の保存
 
@@ -376,28 +396,37 @@ impl RateLimiter {
 }
 ```
 
+## 実装済み機能
+
+### v0.1.0で実装済み
+
+- [x] ワークスペース機能（`.noet/`ディレクトリでプロジェクト管理）
+- [x] テンプレート機能（記事テンプレートの作成・管理・使用）
+- [x] エクスポート機能（Note.comから記事をMarkdownでダウンロード）
+- [x] TUI差分表示（公開前に変更内容を並列比較）
+- [x] インタラクティブモード（メニュー駆動のUI）
+- [x] エディタ統合（設定可能なエディタ自動起動）
+
 ## 今後の改善案
 
 ### 高優先度
 
 - [ ] レート制限実装
 - [ ] より良いエラーメッセージと提案
-- [ ] 下書き自動保存機能
 - [ ] ターミナルでのMarkdownプレビュー
 - [ ] 一括操作（一括アップロード/削除）
 
 ### 中優先度
 
-- [ ] 記事テンプレート
-- [ ] 画像アップロード対応
-- [ ] エクスポート/バックアップ機能
-- [ ] オフライン下書き編集
+- [ ] 画像アップロード対応（要API調査）
+  - Note.comの画像管理仕様が不明確
+  - 画像削除可否が不明（ゴミ画像が溜まるリスク）
+  - 代替案: Web UIでアップロード→URLをMarkdownに貼り付け
 - [ ] 記事バージョン管理/履歴
 - [ ] 検索とフィルタの改善
 
 ### 低優先度
 
-- [ ] TUI（ターミナルUI）モード
 - [ ] 記事分析ダッシュボード
 - [ ] 予約投稿
 - [ ] Webhook通知

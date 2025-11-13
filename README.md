@@ -29,6 +29,12 @@
 ## 特徴
 
 - **記事管理**: 記事の作成、投稿、編集、削除、一覧表示
+- **インタラクティブモード**: 引数なしで`noet`を実行すると、メニュー駆動のUIで操作可能
+- **TUI差分表示**: 公開前に変更内容を左右並列で確認
+- **ワークスペース機能**: Gitリポジトリのように`.noet/`でプロジェクト管理
+- **テンプレート機能**: 記事テンプレートの作成・管理・使用
+- **エクスポート機能**: Note.comから記事をMarkdownでダウンロード
+- **エディタ統合**: 新規作成時に設定したエディタを自動起動
 - **タグ管理**: ハッシュタグの一覧表示、検索、サジェスト
 - **マガジン管理**: 記事のマガジン追加・削除
 - **エンゲージメント**: いいね/いいね解除、コメント閲覧
@@ -88,9 +94,20 @@ cargo install --path .
 
 ## クイックスタート
 
-### 1. 認証
+### 1. ワークスペースの初期化（オプション）
 
-まず、Noteアカウントで認証します：
+記事をGitで管理したい場合、まずワークスペースを初期化します：
+
+```bash
+mkdir ~/my-articles
+cd ~/my-articles
+git init
+noet init  # .noet/ディレクトリを作成
+```
+
+### 2. 認証
+
+Noteアカウントで認証します：
 
 ```bash
 noet auth login
@@ -111,54 +128,73 @@ noet auth login
 noet auth status
 ```
 
-### 2. 新しい記事を作成
+### 3. インタラクティブモードで使う（推奨）
+
+引数なしで`noet`を実行すると、メニュー駆動のUIが起動します：
 
 ```bash
+noet
+```
+
+メニューから以下の操作ができます：
+1. 📝 新規記事を作成（タイトル入力 → テンプレート選択 → エディタ自動起動）
+2. ✏️  既存記事を編集（ファイル選択 → エディタ起動）
+3. 📤 記事を公開（ファイル選択 → 差分表示 → 公開確認）
+4. 📋 自分の記事一覧
+5. 🚪 終了
+
+### 4. コマンドラインから使う
+
+従来通り、コマンドラインからも操作できます：
+
+```bash
+# 新しい記事を作成
 noet new "初めての記事"
-```
 
-frontmatter付きのMarkdownファイルが作成されます：
-
-```markdown
----
-title: 初めての記事
-status: draft
-tags: []
----
-
-# 初めての記事
-
-ここに記事を書いてください...
-```
-
-### 3. 記事を投稿
-
-```bash
+# 記事を投稿（既存記事の場合は差分表示）
 noet publish my-first-article.md
-```
 
-下書きとして投稿する場合：
-
-```bash
+# 下書きとして投稿
 noet publish my-first-article.md --draft
-```
 
-### 4. 記事の一覧表示
+# 差分表示のみ（公開しない）
+noet diff my-first-article.md
 
-```bash
+# 記事の一覧表示
 noet list your-username
 ```
 
 ## コマンド
 
+### インタラクティブモード
+
+```bash
+# 引数なしで実行（推奨）
+noet
+```
+
+メニュー駆動のUIで記事管理が可能です。
+
+### ワークスペース
+
+```bash
+# ワークスペースを初期化（.noet/ディレクトリを作成）
+noet init [PATH]
+```
+
+ワークスペース機能により、記事をGitで管理できます。
+
 ### 記事管理
 
 ```bash
 # 新しい記事を作成
-noet new [TITLE]
+noet new [TITLE] [--template <NAME>]
 
-# 記事を投稿
-noet publish <FILE> [--draft]
+# 記事を投稿（既存記事の場合は差分を表示）
+noet publish <FILE> [--draft] [--force]
+
+# 差分表示のみ（公開しない）
+noet diff <FILE>
 
 # 既存の記事を編集
 noet edit <ARTICLE_ID> <FILE>
@@ -168,6 +204,32 @@ noet delete <ARTICLE_ID> [--force]
 
 # ユーザーの記事一覧
 noet list <USERNAME> [--page <PAGE>]
+```
+
+### エクスポート
+
+```bash
+# 単一記事をエクスポート
+noet export <ARTICLE_KEY> -o article.md
+
+# 全記事をエクスポート
+noet export --all --username <USER> -o ./exports/
+```
+
+### テンプレート
+
+```bash
+# テンプレート一覧
+noet template list
+
+# テンプレート作成
+noet template add <NAME>
+
+# テンプレート表示
+noet template show <NAME>
+
+# テンプレート削除
+noet template remove <NAME>
 ```
 
 ### タグ管理
@@ -228,13 +290,29 @@ noet auth clear
 
 ## 設定
 
-設定ファイルは `~/.config/noet/config.toml` に保存されます：
+設定ファイルは以下の場所に保存されます：
+- Linux: `~/.config/noet/config.toml`
+- macOS: `~/Library/Application Support/noet/config.toml`
+- Windows: `%APPDATA%\noet\config.toml`
 
 ```toml
 default_status = "draft"
 default_tags = []
+editor = "code -w"          # エディタコマンド（オプション）
+username = "your-username"   # ユーザー名（オプション）
 base_url = "https://note.com"
 ```
+
+### エディタ設定
+
+エディタは以下の優先順位で決定されます：
+
+1. `config.toml`の`editor`フィールド
+2. 環境変数`$VISUAL`
+3. 環境変数`$EDITOR`
+4. プラットフォームデフォルト（vim/notepad/open -e）
+
+**VSCodeの場合**: `editor = "code -w"` (`-w`は編集完了まで待機)
 
 ## Frontmatter形式
 
@@ -424,18 +502,26 @@ cargo run -- new "テスト記事"
 
 コミット前に自動的に `cargo fmt` と `cargo clippy` が実行されます。
 
+## 実装済み機能（v0.1.0）
+
+- [x] ワークスペース機能（`.noet/`ディレクトリでプロジェクト管理）
+- [x] テンプレート機能（記事テンプレートの作成・管理・使用）
+- [x] エクスポート機能（Note.comから記事をMarkdownでダウンロード）
+- [x] TUI差分表示（公開前に変更内容を並列比較）
+- [x] インタラクティブモード（メニュー駆動のUI）
+- [x] エディタ統合（設定可能なエディタ自動起動）
+
 ## 今後の予定
 
 以下の機能を実装予定です：
 
-- [ ] 下書き自動保存機能
 - [ ] プレビュー機能（ブラウザでプレビュー表示）
-- [ ] テンプレート機能（記事テンプレートの管理）
 - [ ] 画像アップロード機能
-- [ ] インタラクティブモード
+  - Note.comの画像管理仕様が不明確（要調査）
+  - 画像削除可否が不明（ゴミ画像が溜まるリスク）
+  - 代替案: Web UIでアップロード→URLをMarkdownに貼り付け
 - [ ] 記事の統計情報表示（PV、いいね数など）
-- [ ] 記事の検索機能
-- [ ] エクスポート機能（MarkdownやHTML）
+- [ ] 記事の検索機能強化
 - [ ] crates.ioへの公開
 
 ## FAQ
@@ -463,11 +549,14 @@ A: 現在は1アカウントのみです。複数アカウント対応は今後�
 
 ### Q: 画像のアップロードはできますか？
 
-A: 現在未対応です。今後の予定に含まれています。
+A: 現在未対応です。Note.comの画像管理仕様が不明確なため、調査が必要です。
+   代替案として、Web UIで画像をアップロードしてURLを取得し、Markdownに貼り付けることができます。
 
 ### Q: 記事のバックアップは取れますか？
 
-A: `noet list`で記事一覧を取得できますが、本文の一括バックアップ機能は今後追加予定です。
+A: はい、`noet export`コマンドで記事をMarkdown形式でエクスポートできます：
+   - 単一記事: `noet export <ARTICLE_KEY> -o article.md`
+   - 全記事: `noet export --all --username <USER> -o ./exports/`
 
 ## プロジェクト構造
 
