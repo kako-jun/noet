@@ -33,6 +33,7 @@ pub enum NoetError {
     FileNotFound(String),
 
     #[error("Invalid input: {0}")]
+    #[allow(dead_code)]
     InvalidInput(String),
 
     #[error("Article not found: {0}")]
@@ -42,6 +43,7 @@ pub enum NoetError {
     MissingField(String),
 
     #[error("Unknown error: {0}")]
+    #[allow(dead_code)]
     Unknown(String),
 }
 

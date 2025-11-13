@@ -5,6 +5,7 @@ use serde_json::Value;
 
 impl NoteClient {
     /// Get page view statistics
+    #[allow(dead_code)]
     pub async fn get_stats(&self, filter: Option<&str>, page: u32) -> Result<Vec<Stats>> {
         let mut path = format!("/api/v1/stats/pv?page={}", page);
 
@@ -38,12 +39,17 @@ impl NoteClient {
     }
 
     /// Get notification counts
+    #[allow(dead_code)]
     pub async fn get_notice_counts(&self) -> Result<u32> {
         let path = "/api/v3/notice_counts";
         let response = self.get(path).await?;
         let json: Value = response.json().await?;
 
-        if let Some(count) = json.get("data").and_then(|d| d.get("count")).and_then(|c| c.as_u64()) {
+        if let Some(count) = json
+            .get("data")
+            .and_then(|d| d.get("count"))
+            .and_then(|c| c.as_u64())
+        {
             Ok(count as u32)
         } else {
             Ok(0)

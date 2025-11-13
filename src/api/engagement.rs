@@ -19,6 +19,7 @@ impl NoteClient {
     }
 
     /// Get likes for an article
+    #[allow(dead_code)]
     pub async fn get_likes(&self, note_key: &str) -> Result<Vec<Like>> {
         let path = format!("/api/v3/notes/{}/likes", note_key);
         let response = self.get(&path).await?;
@@ -47,6 +48,7 @@ impl NoteClient {
     }
 
     /// Post a comment on an article
+    #[allow(dead_code)]
     pub async fn post_comment(&self, note_id: &str, comment: &str) -> Result<Comment> {
         let path = format!("/api/v1/note/{}/comments", note_id);
         let body = json!({

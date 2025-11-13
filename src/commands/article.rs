@@ -38,7 +38,10 @@ pub async fn new_article(title: Option<String>) -> Result<()> {
 
     if filepath.exists() {
         let overwrite = Confirm::new()
-            .with_prompt(format!("File '{}' already exists. Overwrite?", filepath.display()))
+            .with_prompt(format!(
+                "File '{}' already exists. Overwrite?",
+                filepath.display()
+            ))
             .interact()?;
 
         if !overwrite {
@@ -57,7 +60,9 @@ pub async fn new_article(title: Option<String>) -> Result<()> {
 
 pub async fn publish_article(filepath: &Path, as_draft: bool) -> Result<()> {
     if !filepath.exists() {
-        return Err(crate::error::NoetError::FileNotFound(filepath.display().to_string()));
+        return Err(crate::error::NoetError::FileNotFound(
+            filepath.display().to_string(),
+        ));
     }
 
     let content = fs::read_to_string(filepath)?;
@@ -71,13 +76,11 @@ pub async fn publish_article(filepath: &Path, as_draft: bool) -> Result<()> {
     let status = if as_draft {
         Some(ArticleStatus::Draft)
     } else {
-        frontmatter
-            .get("status")
-            .and_then(|s| match s.as_str() {
-                "published" => Some(ArticleStatus::Published),
-                "draft" => Some(ArticleStatus::Draft),
-                _ => None,
-            })
+        frontmatter.get("status").and_then(|s| match s.as_str() {
+            "published" => Some(ArticleStatus::Published),
+            "draft" => Some(ArticleStatus::Draft),
+            _ => None,
+        })
     };
 
     let tags = frontmatter.get("tags").and_then(|t| {
@@ -96,7 +99,11 @@ pub async fn publish_article(filepath: &Path, as_draft: bool) -> Result<()> {
 
     let article = client.create_article(title, body, status, tags).await?;
 
-    println!("{} {}", "Article published:".green(), article.key.unwrap_or_default());
+    println!(
+        "{} {}",
+        "Article published:".green(),
+        article.key.unwrap_or_default()
+    );
     if let Some(id) = article.id {
         println!("{} {}", "Article ID:".green(), id);
     }
@@ -106,7 +113,9 @@ pub async fn publish_article(filepath: &Path, as_draft: bool) -> Result<()> {
 
 pub async fn edit_article(article_id: &str, filepath: &Path) -> Result<()> {
     if !filepath.exists() {
-        return Err(crate::error::NoetError::FileNotFound(filepath.display().to_string()));
+        return Err(crate::error::NoetError::FileNotFound(
+            filepath.display().to_string(),
+        ));
     }
 
     let content = fs::read_to_string(filepath)?;
@@ -145,7 +154,10 @@ pub async fn edit_article(article_id: &str, filepath: &Path) -> Result<()> {
 pub async fn delete_article(article_id: &str, force: bool) -> Result<()> {
     if !force {
         let confirm = Confirm::new()
-            .with_prompt(format!("Delete article '{}'? This cannot be undone.", article_id))
+            .with_prompt(format!(
+                "Delete article '{}'? This cannot be undone.",
+                article_id
+            ))
             .interact()?;
 
         if !confirm {
@@ -203,7 +215,10 @@ fn parse_markdown(content: &str) -> Result<(std::collections::HashMap<String, St
                 if let Some((key, value)) = line.split_once(':') {
                     frontmatter.insert(
                         key.trim().to_string(),
-                        value.trim().trim_matches(|c| c == '"' || c == '\'').to_string(),
+                        value
+                            .trim()
+                            .trim_matches(|c| c == '"' || c == '\'')
+                            .to_string(),
                     );
                 }
             }

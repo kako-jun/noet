@@ -47,9 +47,8 @@ impl Config {
             return Ok(config);
         }
 
-        let content = fs::read_to_string(&config_path).map_err(|e| {
-            NoetError::ConfigError(format!("Failed to read config file: {}", e))
-        })?;
+        let content = fs::read_to_string(&config_path)
+            .map_err(|e| NoetError::ConfigError(format!("Failed to read config file: {}", e)))?;
 
         let config: Config = toml::from_str(&content)?;
         Ok(config)
@@ -67,23 +66,25 @@ impl Config {
         let content = toml::to_string_pretty(self)
             .map_err(|e| NoetError::ConfigError(format!("Failed to serialize config: {}", e)))?;
 
-        fs::write(&config_path, content).map_err(|e| {
-            NoetError::ConfigError(format!("Failed to write config file: {}", e))
-        })?;
+        fs::write(&config_path, content)
+            .map_err(|e| NoetError::ConfigError(format!("Failed to write config file: {}", e)))?;
 
         Ok(())
     }
 
     pub fn config_path() -> Result<PathBuf> {
-        let config_dir = config_dir()
-            .ok_or_else(|| NoetError::ConfigError("Could not determine config directory".to_string()))?;
+        let config_dir = config_dir().ok_or_else(|| {
+            NoetError::ConfigError("Could not determine config directory".to_string())
+        })?;
 
         Ok(config_dir.join(APP_NAME).join(CONFIG_FILE))
     }
 
+    #[allow(dead_code)]
     pub fn config_dir() -> Result<PathBuf> {
-        let config_dir = config_dir()
-            .ok_or_else(|| NoetError::ConfigError("Could not determine config directory".to_string()))?;
+        let config_dir = config_dir().ok_or_else(|| {
+            NoetError::ConfigError("Could not determine config directory".to_string())
+        })?;
 
         Ok(config_dir.join(APP_NAME))
     }

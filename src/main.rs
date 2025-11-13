@@ -61,10 +61,7 @@ async fn run() -> error::Result<()> {
             } => {
                 commands::magazine::add_to_magazine(&magazine, &note_id, &note_key).await?;
             }
-            MagazineCommands::Remove {
-                magazine,
-                note_key,
-            } => {
+            MagazineCommands::Remove { magazine, note_key } => {
                 commands::magazine::remove_from_magazine(&magazine, &note_key).await?;
             }
         },

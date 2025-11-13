@@ -18,6 +18,7 @@ impl NoteClient {
     }
 
     /// Get hashtag details
+    #[allow(dead_code)]
     pub async fn get_hashtag(&self, hashtag_name: &str) -> Result<Hashtag> {
         let path = format!("/api/v2/hashtags/{}", hashtag_name);
         let response = self.get(&path).await?;
@@ -53,7 +54,10 @@ impl NoteClient {
                                     if name.to_lowercase().contains(&query.to_lowercase()) {
                                         let hashtag = Hashtag {
                                             name: name.to_string(),
-                                            note_count: tag.get("note_count").and_then(|c| c.as_u64()).map(|c| c as u32),
+                                            note_count: tag
+                                                .get("note_count")
+                                                .and_then(|c| c.as_u64())
+                                                .map(|c| c as u32),
                                         };
                                         hashtags.push(hashtag);
                                     }

@@ -48,6 +48,7 @@ pub struct Hashtag {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Magazine {
     pub key: String,
     pub name: String,
@@ -83,6 +84,7 @@ pub struct Comment {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Like {
     pub id: String,
     pub user: User,
@@ -90,6 +92,7 @@ pub struct Like {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Stats {
     pub pv: u32,
     pub read: u32,
@@ -114,6 +117,7 @@ pub struct CreateArticleRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct CreateArticleResponse {
     pub data: Article,
 }
@@ -143,15 +147,18 @@ pub struct ArticleListData {
     pub contents: Vec<Article>,
 
     #[serde(default)]
+    #[allow(dead_code)]
     pub is_last_page: bool,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SearchResponse {
     pub data: SearchData,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SearchData {
     pub contents: Vec<Article>,
 

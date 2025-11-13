@@ -27,9 +27,7 @@ impl NoteClient {
             }
         }
 
-        let client = client_builder
-            .build()
-            .map_err(|e| NoetError::HttpError(e))?;
+        let client = client_builder.build().map_err(NoetError::HttpError)?;
 
         Ok(Self {
             client,
@@ -41,13 +39,16 @@ impl NoteClient {
     pub async fn get(&self, path: &str) -> Result<Response> {
         let url = format!("{}{}", self.base_url, path);
 
-        let mut request = self.client.get(&url).header("Cookie", &self.credentials.session_cookie);
+        let mut request = self
+            .client
+            .get(&url)
+            .header("Cookie", &self.credentials.session_cookie);
 
         if let Some(ref csrf_token) = self.credentials.csrf_token {
             request = request.header("X-CSRF-Token", csrf_token);
         }
 
-        let response = request.send().await.map_err(|e| NoetError::HttpError(e))?;
+        let response = request.send().await.map_err(NoetError::HttpError)?;
 
         Self::check_response(response).await
     }
@@ -66,7 +67,7 @@ impl NoteClient {
             request = request.header("X-CSRF-Token", csrf_token);
         }
 
-        let response = request.send().await.map_err(|e| NoetError::HttpError(e))?;
+        let response = request.send().await.map_err(NoetError::HttpError)?;
 
         Self::check_response(response).await
     }
@@ -85,7 +86,7 @@ impl NoteClient {
             request = request.header("X-CSRF-Token", csrf_token);
         }
 
-        let response = request.send().await.map_err(|e| NoetError::HttpError(e))?;
+        let response = request.send().await.map_err(NoetError::HttpError)?;
 
         Self::check_response(response).await
     }
@@ -93,13 +94,16 @@ impl NoteClient {
     pub async fn delete(&self, path: &str) -> Result<Response> {
         let url = format!("{}{}", self.base_url, path);
 
-        let mut request = self.client.delete(&url).header("Cookie", &self.credentials.session_cookie);
+        let mut request = self
+            .client
+            .delete(&url)
+            .header("Cookie", &self.credentials.session_cookie);
 
         if let Some(ref csrf_token) = self.credentials.csrf_token {
             request = request.header("X-CSRF-Token", csrf_token);
         }
 
-        let response = request.send().await.map_err(|e| NoetError::HttpError(e))?;
+        let response = request.send().await.map_err(NoetError::HttpError)?;
 
         Self::check_response(response).await
     }

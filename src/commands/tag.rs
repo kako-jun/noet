@@ -35,7 +35,10 @@ pub async fn suggest_tags(keyword: &str) -> Result<()> {
     let credentials = Credentials::load()?;
     let client = NoteClient::new(config, credentials)?;
 
-    println!("{}", format!("Searching for tags matching '{}'...", keyword).cyan());
+    println!(
+        "{}",
+        format!("Searching for tags matching '{}'...", keyword).cyan()
+    );
 
     let hashtags = client.search_hashtags(keyword).await?;
 
