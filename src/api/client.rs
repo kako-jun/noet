@@ -58,7 +58,8 @@ impl NoteClient {
 
     /// Helper function to add authentication headers to a request
     fn add_auth_headers(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        let mut request = builder.header("Cookie", &self.credentials.session_cookie);
+        let cookie_header = format!("_note_session_v5={}", &self.credentials.session_cookie);
+        let mut request = builder.header("Cookie", cookie_header);
 
         if let Some(ref xsrf_token) = self.credentials.xsrf_token {
             request = request.header("X-XSRF-TOKEN", xsrf_token);

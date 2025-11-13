@@ -8,9 +8,21 @@ use serde_json::json;
 /// Helper function to extract article from JSON response
 fn extract_article_from_response(json: serde_json::Value) -> Result<Article> {
     if let Some(data) = json.get("data") {
-        let article: Article = serde_json::from_value(data.clone())?;
+        let article: Article = serde_json::from_value(data.clone()).map_err(|e| {
+            eprintln!("JSONパースエラー: {}", e);
+            eprintln!(
+                "レスポンス: {}",
+                serde_json::to_string_pretty(&json).unwrap_or_default()
+            );
+            e
+        })?;
         Ok(article)
     } else {
+        eprintln!("レスポンスに'data'フィールドがありません");
+        eprintln!(
+            "レスポンス全体: {}",
+            serde_json::to_string_pretty(&json).unwrap_or_default()
+        );
         Err(crate::error::NoetError::ApiError {
             status: 500,
             message: "Unexpected response format".to_string(),
@@ -28,8 +40,8 @@ impl NoteClient {
         hashtags: Option<Vec<String>>,
     ) -> Result<Article> {
         let request = CreateArticleRequest {
-            name,
-            body,
+            name: name.clone(),
+            body: body.clone(),
             status,
             hashtag_notes: hashtags,
             publish_at: None,
@@ -37,7 +49,30 @@ impl NoteClient {
 
         let response = self.post("/api/v1/text_notes", request).await?;
         let json: serde_json::Value = response.json().await?;
-        extract_article_from_response(json)
+
+        // For create response, extract minimal info and return a partial Article
+        if let Some(data) = json.get("data") {
+            let id = data
+                .get("id")
+                .and_then(|v| v.as_i64())
+                .map(|n| n.to_string());
+            let key = data.get("key").and_then(|v| v.as_str()).map(String::from);
+
+            Ok(Article {
+                id,
+                key,
+                name,
+                body,
+                status: None,
+                hashtag_notes: None,
+                publish_at: None,
+                like_count: None,
+                comment_count: None,
+                read_count: None,
+            })
+        } else {
+            extract_article_from_response(json)
+        }
     }
 
     /// Save article as draft

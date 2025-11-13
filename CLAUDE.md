@@ -11,7 +11,7 @@ src/
 ├── main.rs           # エントリーポイント、引数パース、エラーハンドリング
 ├── cli.rs            # Clapコマンド定義
 ├── config.rs         # 設定ファイル管理
-├── auth.rs           # システムキーリングによる認証情報保存
+├── auth.rs           # 環境変数による認証情報管理
 ├── error.rs          # thiserrorによるカスタムエラー型
 ├── models.rs         # API用のSerdeデータ構造
 ├── editor.rs         # エディタ起動と設定管理
@@ -170,15 +170,14 @@ base_url = "https://note.com"
 
 **VSCodeの場合**: `editor = "code -w"` (`-w`は編集完了まで待機)
 
-## 認証情報の保存
+## 認証情報の管理
 
-認証情報はシステムキーリングに安全に保存されます：
+認証情報は環境変数で管理されます：
 
-- **macOS**: Keychain
-- **Linux**: Secret Service (libsecret)
-- **Windows**: Credential Manager
+- **セッションCookie**: `NOET_SESSION_COOKIE` (必須)
+- **XSRFトークン**: `NOET_XSRF_TOKEN` (オプション)
 
-`keyring`クレートでクロスプラットフォーム対応。
+ユーザーはシェル設定ファイル（`~/.zshrc`、`~/.bashrc`など）に環境変数を設定します。
 
 ## プロキシ対応
 
@@ -550,9 +549,9 @@ cargo build --release --target x86_64-pc-windows-gnu
 ## セキュリティ考慮事項
 
 - **Cookie保存**: セッションCookieをログや出力に含めない
-  - システムキーリングに保存（OSレベルで暗号化）
-  - macOS: AES-256、Linux: libsecret、Windows: DPAPI
-  - アプリケーションレベルでの追加暗号化は行っていない（OSの暗号化で十分）
+  - 環境変数で管理（シェル設定ファイル）
+  - 設定ファイルのパーミッションを適切に設定（`chmod 600`推奨）
+  - Gitなどでコミットしないように`.gitignore`に追加
 - **XSRF保護**: 可能な場合は常にXSRFトークンを含める
 - **入力検証**: API呼び出し前にユーザー入力をサニタイズ
 - **レート制限**: 不正利用とIPバンを防ぐ

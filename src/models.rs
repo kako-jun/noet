@@ -1,15 +1,34 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+fn deserialize_string_or_number<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+    use serde_json::Value;
+
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::String(s) => Ok(Some(s)),
+        Value::Number(n) => Ok(Some(n.to_string())),
+        Value::Null => Ok(None),
+        _ => Err(D::Error::custom("expected string, number, or null")),
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Article {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "deserialize_string_or_number")]
     pub id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
 
     pub name: String,
+
+    #[serde(default)]
     pub body: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
