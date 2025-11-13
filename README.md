@@ -1,8 +1,30 @@
 # noet
 
+> note.comをターミナルから操作する、Rust製の高速CLIツール
+
+[![CI](https://github.com/kako-jun/noet/actions/workflows/ci.yml/badge.svg)](https://github.com/kako-jun/noet/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
 [note.com](https://note.com) の記事を管理するためのコマンドラインツール（Rust製）。
 
 `noet`を使うと、Hugoなどの静的サイトジェネレータのように、Markdownファイルでターミナルから記事の作成・投稿・管理ができます。
+
+<!-- スクリーンショット予定地 -->
+<!-- ![Demo](docs/images/demo.gif) -->
+
+## 目次
+
+- [特徴](#特徴)
+- [インストール](#インストール)
+- [クイックスタート](#クイックスタート)
+- [コマンド](#コマンド)
+- [使用例](#使用例)
+- [設定](#設定)
+- [トラブルシューティング](#トラブルシューティング)
+- [開発](#開発)
+- [今後の予定](#今後の予定)
+- [FAQ](#faq)
+- [ライセンス](#ライセンス)
 
 ## 特徴
 
@@ -16,6 +38,41 @@
 
 ## インストール
 
+### バイナリをダウンロード（推奨）
+
+[GitHub Releases](https://github.com/kako-jun/noet/releases)から、お使いのOSに対応したバイナリをダウンロードしてください。
+
+**Linux (x86_64)**
+```bash
+wget https://github.com/kako-jun/noet/releases/latest/download/noet-linux-amd64.tar.gz
+tar xzf noet-linux-amd64.tar.gz
+sudo mv noet /usr/local/bin/
+```
+
+**macOS (Intel)**
+```bash
+curl -LO https://github.com/kako-jun/noet/releases/latest/download/noet-macos-amd64.tar.gz
+tar xzf noet-macos-amd64.tar.gz
+sudo mv noet /usr/local/bin/
+```
+
+**macOS (Apple Silicon)**
+```bash
+curl -LO https://github.com/kako-jun/noet/releases/latest/download/noet-macos-arm64.tar.gz
+tar xzf noet-macos-arm64.tar.gz
+sudo mv noet /usr/local/bin/
+```
+
+**Windows**
+
+[noet-windows-amd64.zip](https://github.com/kako-jun/noet/releases/latest/download/noet-windows-amd64.zip)をダウンロードして展開し、パスを通してください。
+
+### Cargoからインストール（近日公開予定）
+
+```bash
+cargo install noet
+```
+
 ### ソースからビルド
 
 ```bash
@@ -26,8 +83,8 @@ cargo install --path .
 
 ### 必要要件
 
-- Rust 1.70以上
 - note.comアカウント
+- （ソースビルドの場合）Rust 1.70以上
 
 ## クイックスタート
 
@@ -38,6 +95,9 @@ cargo install --path .
 ```bash
 noet auth login
 ```
+
+<!-- スクリーンショット予定地 -->
+<!-- ![Login](docs/images/login.png) -->
 
 以下の手順が必要です：
 1. ブラウザで https://note.com にログイン
@@ -242,13 +302,176 @@ cargo test
 cargo run -- <COMMAND>
 ```
 
+## 使用例
+
+### 日常的なワークフロー
+
+```bash
+# 新しい記事を作成
+noet new "Rustでコマンドラインツールを作る"
+
+# エディタで編集
+vim rustでコマンドラインツールを作る.md
+
+# 下書きとして投稿
+noet publish rustでコマンドラインツールを作る.md --draft
+
+# レビュー後、公開状態に更新
+# （markdownのstatusをpublishedに変更してから）
+noet edit <ARTICLE_ID> rustでコマンドラインツールを作る.md
+
+# 記事一覧を確認
+noet list your-username
+```
+
+### タグ付けのベストプラクティス
+
+```markdown
+---
+title: Rustでコマンドラインツールを作る
+status: published
+tags: Rust, CLI, プログラミング, チュートリアル
+---
+```
+
+タグサジェスト機能を使うと便利です：
+
+```bash
+noet tag suggest rust
+# → 関連するハッシュタグの候補が表示されます
+```
+
+## トラブルシューティング
+
+### 認証エラー
+
+```
+Error: Not authenticated. Please run 'noet auth login' first.
+```
+
+**解決方法:**
+1. `noet auth clear` で既存の認証情報をクリア
+2. `noet auth login` で再ログイン
+3. セッションクッキーが有効か確認（ブラウザでログイン状態を確認）
+
+### プロキシ環境での接続エラー
+
+```
+Error: HTTP request failed: ...
+```
+
+**解決方法:**
+```bash
+export HTTP_PROXY=http://proxy.example.com:8080
+export HTTPS_PROXY=https://proxy.example.com:8080
+noet auth status  # 接続テスト
+```
+
+### Linux での keyring エラー
+
+```
+Error: Keyring error: No keyring found
+```
+
+**解決方法（Ubuntu/Debian）:**
+```bash
+sudo apt-get install gnome-keyring libsecret-1-0
+```
+
+**解決方法（Arch Linux）:**
+```bash
+sudo pacman -S gnome-keyring libsecret
+```
+
+### macOS での権限エラー
+
+初回起動時にキーチェーンへのアクセス許可を求められます。「許可」を選択してください。
+
+## 開発
+
+### ビルド
+
+```bash
+cargo build
+```
+
+### テスト実行
+
+```bash
+cargo test
+```
+
+### ローカル実行
+
+```bash
+cargo run -- <COMMAND>
+
+# 例：
+cargo run -- auth status
+cargo run -- new "テスト記事"
+```
+
+### コントリビューション
+
+プルリクエストを歓迎します！バグ報告や機能リクエストは[Issues](https://github.com/kako-jun/noet/issues)にお願いします。
+
+開発手順：
+1. フォークする
+2. フィーチャーブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. コミット (`git commit -m 'Add amazing feature'`)
+4. プッシュ (`git push origin feature/amazing-feature`)
+5. プルリクエストを作成
+
+コミット前に自動的に `cargo fmt` と `cargo clippy` が実行されます。
+
+## 今後の予定
+
+以下の機能を実装予定です：
+
+- [ ] 下書き自動保存機能
+- [ ] プレビュー機能（ブラウザでプレビュー表示）
+- [ ] テンプレート機能（記事テンプレートの管理）
+- [ ] 画像アップロード機能
+- [ ] インタラクティブモード
+- [ ] 記事の統計情報表示（PV、いいね数など）
+- [ ] 記事の検索機能
+- [ ] エクスポート機能（MarkdownやHTML）
+- [ ] crates.ioへの公開
+
+## FAQ
+
+### Q: セッションクッキーはどこに保存されますか？
+
+A: OSのキーリングに安全に保存されます：
+- **macOS**: Keychain (AES-256で暗号化)
+- **Linux**: Secret Service (libsecret)
+- **Windows**: Credential Manager (DPAPI)
+
+平文ファイルには保存されません。
+
+### Q: note.comの公式ツールですか？
+
+A: いいえ、これは**非公式ツール**です。note.comやnote株式会社とは提携していません。
+
+### Q: APIレート制限はありますか？
+
+A: 非公式APIを使用しているため、詳細な制限は不明です。過度な使用は避けてください。
+
+### Q: 複数アカウントを管理できますか？
+
+A: 現在は1アカウントのみです。複数アカウント対応は今後検討します。
+
+### Q: 画像のアップロードはできますか？
+
+A: 現在未対応です。今後の予定に含まれています。
+
+### Q: 記事のバックアップは取れますか？
+
+A: `noet list`で記事一覧を取得できますが、本文の一括バックアップ機能は今後追加予定です。
+
 ## プロジェクト構造
 
 詳細な実装仕様については [CLAUDE.md](CLAUDE.md) を参照してください。
-
-## コントリビューション
-
-プルリクエストを歓迎します！
 
 ## ライセンス
 

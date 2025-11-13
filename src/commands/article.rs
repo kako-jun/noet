@@ -257,3 +257,82 @@ fn print_article_summary(article: &Article) {
         println!("  {} {}", "Likes:".dimmed(), like_count);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_markdown_with_frontmatter() {
+        let content = r#"---
+title: Test Article
+status: published
+tags: rust, cli
+---
+
+# Test Article
+
+This is the body."#;
+
+        let (frontmatter, body) = parse_markdown(content).unwrap();
+
+        assert_eq!(frontmatter.get("title"), Some(&"Test Article".to_string()));
+        assert_eq!(frontmatter.get("status"), Some(&"published".to_string()));
+        assert_eq!(frontmatter.get("tags"), Some(&"rust, cli".to_string()));
+        assert!(body.contains("# Test Article"));
+        assert!(body.contains("This is the body."));
+    }
+
+    #[test]
+    fn test_parse_markdown_without_frontmatter() {
+        let content = "# Just Content\n\nNo frontmatter here.";
+
+        let (frontmatter, body) = parse_markdown(content).unwrap();
+
+        assert!(frontmatter.is_empty());
+        assert_eq!(body, content);
+    }
+
+    #[test]
+    fn test_parse_markdown_with_quotes() {
+        let content = r#"---
+title: "Article with Quotes"
+status: 'draft'
+---
+
+Body content"#;
+
+        let (frontmatter, body) = parse_markdown(content).unwrap();
+
+        assert_eq!(
+            frontmatter.get("title"),
+            Some(&"Article with Quotes".to_string())
+        );
+        assert_eq!(frontmatter.get("status"), Some(&"draft".to_string()));
+        assert_eq!(body, "Body content");
+    }
+
+    #[test]
+    fn test_parse_markdown_empty_body() {
+        let content = r#"---
+title: Empty Body
+---
+"#;
+
+        let (frontmatter, body) = parse_markdown(content).unwrap();
+
+        assert_eq!(frontmatter.get("title"), Some(&"Empty Body".to_string()));
+        assert_eq!(body, "");
+    }
+
+    #[test]
+    fn test_parse_markdown_malformed_frontmatter() {
+        let content = "---\ninvalid frontmatter\n---\n\nBody";
+
+        let (frontmatter, body) = parse_markdown(content).unwrap();
+
+        // Should handle malformed frontmatter gracefully
+        assert!(frontmatter.is_empty());
+        assert_eq!(body, "Body");
+    }
+}

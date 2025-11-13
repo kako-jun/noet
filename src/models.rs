@@ -165,3 +165,84 @@ pub struct SearchData {
     #[serde(default)]
     pub total: u32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_article_status_serialization() {
+        let status = ArticleStatus::Published;
+        let json = serde_json::to_string(&status).unwrap();
+        assert_eq!(json, "\"published\"");
+
+        let status = ArticleStatus::Draft;
+        let json = serde_json::to_string(&status).unwrap();
+        assert_eq!(json, "\"draft\"");
+
+        let status = ArticleStatus::Scheduled;
+        let json = serde_json::to_string(&status).unwrap();
+        assert_eq!(json, "\"scheduled\"");
+    }
+
+    #[test]
+    fn test_article_status_deserialization() {
+        let status: ArticleStatus = serde_json::from_str("\"published\"").unwrap();
+        assert_eq!(status, ArticleStatus::Published);
+
+        let status: ArticleStatus = serde_json::from_str("\"draft\"").unwrap();
+        assert_eq!(status, ArticleStatus::Draft);
+
+        let status: ArticleStatus = serde_json::from_str("\"scheduled\"").unwrap();
+        assert_eq!(status, ArticleStatus::Scheduled);
+    }
+
+    #[test]
+    fn test_article_creation() {
+        let article = Article {
+            id: Some("123".to_string()),
+            key: Some("test-key".to_string()),
+            name: "Test Article".to_string(),
+            body: "Test body".to_string(),
+            status: Some(ArticleStatus::Draft),
+            hashtag_notes: None,
+            publish_at: None,
+            like_count: Some(10),
+            comment_count: Some(5),
+            read_count: Some(100),
+        };
+
+        assert_eq!(article.id, Some("123".to_string()));
+        assert_eq!(article.name, "Test Article");
+        assert_eq!(article.status, Some(ArticleStatus::Draft));
+        assert_eq!(article.like_count, Some(10));
+    }
+
+    #[test]
+    fn test_hashtag_creation() {
+        let hashtag = Hashtag {
+            name: "rust".to_string(),
+            note_count: Some(42),
+        };
+
+        assert_eq!(hashtag.name, "rust");
+        assert_eq!(hashtag.note_count, Some(42));
+    }
+
+    #[test]
+    fn test_create_article_request_serialization() {
+        let request = CreateArticleRequest {
+            name: "Test".to_string(),
+            body: "Body".to_string(),
+            status: Some(ArticleStatus::Published),
+            hashtag_notes: Some(vec!["rust".to_string(), "cli".to_string()]),
+            publish_at: None,
+        };
+
+        let json = serde_json::to_value(&request).unwrap();
+        assert_eq!(json["name"], "Test");
+        assert_eq!(json["body"], "Body");
+        assert_eq!(json["status"], "published");
+        assert!(json["hashtag_notes"].is_array());
+    }
+}
