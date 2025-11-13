@@ -16,6 +16,10 @@ pub enum Commands {
     New {
         /// Article title
         title: Option<String>,
+
+        /// Use a template
+        #[arg(short, long)]
+        template: Option<String>,
     },
 
     /// Publish an article to Note
@@ -111,6 +115,10 @@ pub enum Commands {
         page: u32,
     },
 
+    /// Template management commands
+    #[command(subcommand)]
+    Template(TemplateCommands),
+
     /// Authentication commands
     #[command(subcommand)]
     Auth(AuthCommands),
@@ -155,6 +163,30 @@ pub enum MagazineCommands {
 
         /// Article key
         note_key: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum TemplateCommands {
+    /// List all templates
+    List,
+
+    /// Create a new template
+    Add {
+        /// Template name
+        name: String,
+    },
+
+    /// Show template content
+    Show {
+        /// Template name
+        name: String,
+    },
+
+    /// Remove a template
+    Remove {
+        /// Template name
+        name: String,
     },
 }
 

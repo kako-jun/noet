@@ -1,5 +1,6 @@
 use crate::api::NoteClient;
 use crate::auth::Credentials;
+use crate::commands::template;
 use crate::config::Config;
 use crate::error::Result;
 use crate::models::{Article, ArticleStatus};
@@ -19,7 +20,7 @@ tags: []
 Write your article content here...
 "#;
 
-pub async fn new_article(title: Option<String>) -> Result<()> {
+pub async fn new_article(title: Option<String>, template_name: Option<String>) -> Result<()> {
     let article_title = match title {
         Some(t) => t,
         None => Input::<String>::new()
@@ -50,7 +51,15 @@ pub async fn new_article(title: Option<String>) -> Result<()> {
         }
     }
 
-    let content = ARTICLE_TEMPLATE.replace("{title}", &article_title);
+    let content = if let Some(ref template) = template_name {
+        // Use template
+        println!("{}", format!("Using template '{}'...", template).cyan());
+        template::load_template(template, &article_title)?
+    } else {
+        // Use default template
+        ARTICLE_TEMPLATE.replace("{title}", &article_title)
+    };
+
     fs::write(&filepath, content)?;
 
     println!("{} {}", "Created article:".green(), filepath.display());

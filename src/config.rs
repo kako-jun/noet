@@ -80,7 +80,6 @@ impl Config {
         Ok(config_dir.join(APP_NAME).join(CONFIG_FILE))
     }
 
-    #[allow(dead_code)]
     pub fn config_dir() -> Result<PathBuf> {
         let config_dir = config_dir().ok_or_else(|| {
             NoetError::ConfigError("Could not determine config directory".to_string())
