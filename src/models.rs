@@ -26,8 +26,11 @@ pub struct Article {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
 
+    #[serde(default)]
     pub name: String,
 
+    /// Article body in HTML format (Note.com API returns HTML, not Markdown)
+    /// Requires HTML→Markdown conversion for display and Markdown→HTML for creation/update
     #[serde(default)]
     pub body: String,
 
