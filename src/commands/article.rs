@@ -184,15 +184,42 @@ pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Re
         }
     }
 
-    println!("{}", "Note に記事を公開中...".cyan());
+    let action_msg = match &status {
+        Some(ArticleStatus::Draft) => "Note に記事を下書き保存中...".to_string(),
+        Some(ArticleStatus::Published) => "Note に記事を公開中...".to_string(),
+        Some(ArticleStatus::Scheduled) => "Note に記事を予約投稿中...".to_string(),
+        None => "Note に記事を送信中...".to_string(),
+    };
+    println!("{}", action_msg.cyan());
+
+    log::debug!("記事タイトル: {}", title);
+    log::debug!(
+        "記事本文 (最初の100文字): {}",
+        &body.chars().take(100).collect::<String>()
+    );
+    log::debug!("ステータス: {:?}", status);
 
     let article = client
-        .create_article(title.clone(), body, status, tags)
+        .create_article(title.clone(), body.clone(), status.clone(), tags.clone())
         .await?;
 
+    // Note.comのcreate_articleは本文を保存しないので、update_articleで本文を保存する
+    if let Some(ref id) = article.id {
+        log::debug!("記事作成後、本文を更新します (ID: {})", id);
+        client
+            .update_article(id, None, Some(body), status.clone(), tags)
+            .await?;
+    }
+
+    let success_msg = match &status {
+        Some(ArticleStatus::Draft) => "記事を下書きとして保存しました:".to_string(),
+        Some(ArticleStatus::Published) => "記事を公開しました:".to_string(),
+        Some(ArticleStatus::Scheduled) => "記事を予約投稿しました:".to_string(),
+        None => "記事を作成しました:".to_string(),
+    };
     println!(
         "{} {}",
-        "記事を公開しました:".green(),
+        success_msg.green(),
         article.key.unwrap_or_default()
     );
     if let Some(id) = article.id {

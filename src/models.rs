@@ -50,12 +50,31 @@ pub struct Article {
     pub read_count: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum ArticleStatus {
     Published,
     Draft,
     Scheduled,
+}
+
+impl<'de> Deserialize<'de> for ArticleStatus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "published" => Ok(ArticleStatus::Published),
+            "draft" => Ok(ArticleStatus::Draft),
+            "scheduled" => Ok(ArticleStatus::Scheduled),
+            "" => Ok(ArticleStatus::Draft), // Empty string defaults to Draft
+            _ => Err(serde::de::Error::unknown_variant(
+                &s,
+                &["published", "draft", "scheduled"],
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
