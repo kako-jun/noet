@@ -17,9 +17,10 @@ src/
 ├── editor.rs         # エディタ起動と設定管理
 ├── tui_diff.rs       # TUI差分表示
 ├── workspace.rs      # ワークスペース管理
+├── rate_limiter.rs   # レート制限（500ms固定）
 ├── api/              # Note APIクライアント実装
 │   ├── mod.rs
-│   ├── client.rs     # reqwestベースのHTTPクライアント
+│   ├── client.rs     # reqwestベースのHTTPクライアント（レート制限統合）
 │   ├── article.rs    # 記事CRUD操作
 │   ├── tag.rs        # ハッシュタグ操作
 │   ├── magazine.rs   # マガジン管理操作
@@ -34,7 +35,7 @@ src/
     ├── engagement.rs # エンゲージメントコマンド
     ├── user.rs       # ユーザー情報コマンド
     ├── auth.rs       # 認証コマンド
-    ├── export.rs     # エクスポート機能
+    ├── export.rs     # エクスポート機能（上書き警告付き）
     ├── template.rs   # テンプレート管理
     ├── workspace.rs  # ワークスペース初期化
     └── interactive.rs # インタラクティブモード
@@ -364,36 +365,80 @@ mod tests {
 - XSRFトークン挿入
 - プロキシサポート（HTTP_PROXY/HTTPS_PROXY環境変数）
 - カスタムエラーハンドリング
+- **レート制限（500ms固定）** - すべてのHTTPメソッド（GET/POST/PUT/DELETE）で自動適用
 
-## レート制限のベストプラクティス
+## レート制限
 
-IPバンを避けるために：
+**実装状況**: ✅ 実装済み（v0.1.0）
 
-1. リクエスト間に遅延を追加（100-500ms）
-2. エラー時は指数バックオフを実装
-3. 可能な場合はAPIレスポンスをキャッシュ
-4. HTTP 429 (Too Many Requests)レスポンスを尊重
+IPバンを防ぐため、`rate_limiter.rs`モジュールで固定レート制限を実装：
 
-レート制限の例：
+### 仕様
+- **固定ウェイト**: 500ms（2リクエスト/秒）
+- **適用範囲**: すべてのAPI呼び出し（GET/POST/PUT/DELETE）
+- **スレッドセーフ**: Mutexによる同期
+- **自動適用**: `NoteClient`に統合、ユーザーの手動制御不要
+
+### 実装
 
 ```rust
-use tokio::time::{sleep, Duration};
+// src/rate_limiter.rs
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+use tokio::time::sleep;
 
 pub struct RateLimiter {
+    last_request: Mutex<Option<Instant>>,
     delay: Duration,
 }
 
 impl RateLimiter {
-    pub fn new(requests_per_second: u64) -> Self {
+    pub fn new(delay_ms: u64) -> Self {
         Self {
-            delay: Duration::from_millis(1000 / requests_per_second),
+            last_request: Mutex::new(None),
+            delay: Duration::from_millis(delay_ms),
         }
     }
 
     pub async fn wait(&self) {
-        sleep(self.delay).await;
+        // ロック保持中はawaitしない実装
+        // 詳細はsrc/rate_limiter.rsを参照
     }
 }
+
+impl Default for RateLimiter {
+    fn default() -> Self {
+        Self::new(500) // 500ms delay
+    }
+}
+```
+
+### NoteClientとの統合
+
+```rust
+// src/api/client.rs
+pub struct NoteClient {
+    client: Client,
+    base_url: String,
+    config: Config,
+    credentials: Credentials,
+    rate_limiter: RateLimiter, // 自動レート制限
+}
+
+pub async fn get(&self, path: &str) -> Result<Response> {
+    self.rate_limiter.wait().await; // すべてのリクエスト前に自動待機
+    // ... リクエスト処理
+}
+```
+
+### 連続リクエストの例
+
+```bash
+# エクスポート時: 100記事 = 約50秒（100 × 500ms）
+noet export --all --username myuser
+
+# 一覧取得時: ページごとに500ms待機
+noet list myuser
 ```
 
 ## 実装済み機能
@@ -403,15 +448,17 @@ impl RateLimiter {
 - [x] ワークスペース機能（`.noet/`ディレクトリでプロジェクト管理）
 - [x] テンプレート機能（記事テンプレートの作成・管理・使用）
 - [x] エクスポート機能（Note.comから記事をMarkdownでダウンロード）
+  - [x] 上書き警告（既存ファイル保護）
 - [x] TUI差分表示（公開前に変更内容を並列比較）
 - [x] インタラクティブモード（メニュー駆動のUI）
 - [x] エディタ統合（設定可能なエディタ自動起動）
+- [x] **レート制限（500ms固定、IPバン防止）**
+- [x] **完全日本語化UI**
 
 ## 今後の改善案
 
 ### 高優先度
 
-- [ ] レート制限実装
 - [ ] より良いエラーメッセージと提案
 - [ ] 一括操作（一括アップロード/削除）
 

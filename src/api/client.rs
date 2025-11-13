@@ -1,6 +1,7 @@
 use crate::auth::Credentials;
 use crate::config::Config;
 use crate::error::{NoetError, Result};
+use crate::rate_limiter::RateLimiter;
 use reqwest::{Client, Response};
 use std::time::Duration;
 
@@ -9,6 +10,7 @@ pub struct NoteClient {
     base_url: String,
     config: Config,
     credentials: Credentials,
+    rate_limiter: RateLimiter,
 }
 
 impl NoteClient {
@@ -36,6 +38,7 @@ impl NoteClient {
             base_url,
             config,
             credentials,
+            rate_limiter: RateLimiter::default(), // 500ms delay
         })
     }
 
@@ -65,6 +68,7 @@ impl NoteClient {
     }
 
     pub async fn get(&self, path: &str) -> Result<Response> {
+        self.rate_limiter.wait().await;
         let url = self.build_url(path);
         let request = self.client.get(&url);
         let request = self.add_auth_headers(request);
@@ -73,6 +77,7 @@ impl NoteClient {
     }
 
     pub async fn post(&self, path: &str, body: impl serde::Serialize) -> Result<Response> {
+        self.rate_limiter.wait().await;
         let url = self.build_url(path);
         let request = self
             .client
@@ -85,6 +90,7 @@ impl NoteClient {
     }
 
     pub async fn put(&self, path: &str, body: impl serde::Serialize) -> Result<Response> {
+        self.rate_limiter.wait().await;
         let url = self.build_url(path);
         let request = self
             .client
@@ -97,6 +103,7 @@ impl NoteClient {
     }
 
     pub async fn delete(&self, path: &str) -> Result<Response> {
+        self.rate_limiter.wait().await;
         let url = self.build_url(path);
         let request = self.client.delete(&url);
         let request = self.add_auth_headers(request);

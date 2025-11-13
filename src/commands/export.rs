@@ -4,6 +4,7 @@ use crate::config::Config;
 use crate::error::{NoetError, Result};
 use crate::models::ArticleStatus;
 use colored::Colorize;
+use dialoguer::Confirm;
 use std::fs;
 use std::path::PathBuf;
 
@@ -81,6 +82,26 @@ async fn export_all_articles(
         "{}",
         format!("ユーザー '{}' のすべての記事をエクスポート中...", username).cyan()
     );
+
+    // Check if output directory exists and has files
+    if output_dir.exists() && output_dir.read_dir()?.next().is_some() {
+        println!(
+            "\n{} '{}' には既にファイルが存在します。",
+            "警告:".yellow().bold(),
+            output_dir.display()
+        );
+        println!("{}", "既存のファイルは上書きされます。".yellow());
+
+        let confirm = Confirm::new()
+            .with_prompt("続行しますか？")
+            .default(false)
+            .interact()?;
+
+        if !confirm {
+            println!("{}", "キャンセルされました。".yellow());
+            return Ok(());
+        }
+    }
 
     fs::create_dir_all(output_dir)?;
 

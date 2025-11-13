@@ -6,6 +6,7 @@ mod config;
 mod editor;
 mod error;
 mod models;
+mod rate_limiter;
 mod tui_diff;
 mod workspace;
 
