@@ -48,3 +48,50 @@ pub enum NoetError {
 }
 
 pub type Result<T> = std::result::Result<T, NoetError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_auth_error_display() {
+        let error = NoetError::AuthError("Test auth error".to_string());
+        assert_eq!(error.to_string(), "Authentication failed: Test auth error");
+    }
+
+    #[test]
+    fn test_api_error_display() {
+        let error = NoetError::ApiError {
+            status: 404,
+            message: "Not found".to_string(),
+        };
+        assert_eq!(error.to_string(), "API error: 404 - Not found");
+    }
+
+    #[test]
+    fn test_config_error_display() {
+        let error = NoetError::ConfigError("Config file missing".to_string());
+        assert_eq!(
+            error.to_string(),
+            "Configuration error: Config file missing"
+        );
+    }
+
+    #[test]
+    fn test_file_not_found_error_display() {
+        let error = NoetError::FileNotFound("/path/to/file.md".to_string());
+        assert_eq!(error.to_string(), "File not found: /path/to/file.md");
+    }
+
+    #[test]
+    fn test_article_not_found_error_display() {
+        let error = NoetError::ArticleNotFound("article-123".to_string());
+        assert_eq!(error.to_string(), "Article not found: article-123");
+    }
+
+    #[test]
+    fn test_missing_field_error_display() {
+        let error = NoetError::MissingField("title".to_string());
+        assert_eq!(error.to_string(), "Missing required field: title");
+    }
+}
