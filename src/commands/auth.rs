@@ -4,18 +4,18 @@ use colored::Colorize;
 use dialoguer::Input;
 
 pub async fn login() -> Result<()> {
-    println!("{}", "Note Authentication".bold());
-    println!("\nTo authenticate:");
-    println!("1. Open https://note.com and log in");
-    println!("2. Open browser DevTools (F12) → Application/Storage → Cookies");
-    println!("3. Copy the value of '_note_session_v5' cookie\n");
+    println!("{}", "Note 認証".bold());
+    println!("\n認証するには:");
+    println!("1. https://note.com にログイン");
+    println!("2. ブラウザの開発者ツール (F12) → Application/Storage → Cookies");
+    println!("3. '_note_session_v5' クッキーの値をコピー\n");
 
     let session_cookie: String = Input::new()
-        .with_prompt("Enter your Note session cookie")
+        .with_prompt("Note セッションクッキーを入力")
         .interact_text()?;
 
     let xsrf_token: String = Input::new()
-        .with_prompt("Enter XSRF token (optional, press Enter to skip)")
+        .with_prompt("XSRF トークンを入力 (オプション、スキップする場合は Enter)")
         .allow_empty(true)
         .interact_text()?;
 
@@ -28,8 +28,8 @@ pub async fn login() -> Result<()> {
     let credentials = Credentials::new(session_cookie, xsrf);
     credentials.save()?;
 
-    println!("{}", "\n✓ Authentication successful!".green());
-    println!("Credentials saved securely in system keyring.");
+    println!("{}", "\n✓ 認証に成功しました！".green());
+    println!("認証情報はシステムキーリングに安全に保存されました。");
 
     Ok(())
 }
@@ -37,18 +37,18 @@ pub async fn login() -> Result<()> {
 pub async fn status() -> Result<()> {
     if Credentials::exists() {
         let credentials = Credentials::load()?;
-        println!("{}", "✓ Authenticated".green());
+        println!("{}", "✓ 認証済み".green());
         println!(
-            "\nSession cookie: {}",
+            "\nセッションクッキー: {}",
             mask_cookie(&credentials.session_cookie)
         );
 
         if let Some(ref xsrf) = credentials.xsrf_token {
-            println!("XSRF token: {}", mask_token(xsrf));
+            println!("XSRF トークン: {}", mask_token(xsrf));
         }
     } else {
-        println!("{}", "✗ Not authenticated".red());
-        println!("Run 'noet auth login' to authenticate.");
+        println!("{}", "✗ 未認証".red());
+        println!("'noet auth login' を実行して認証してください。");
     }
 
     Ok(())
@@ -56,23 +56,23 @@ pub async fn status() -> Result<()> {
 
 pub async fn refresh() -> Result<()> {
     if !Credentials::exists() {
-        println!("{}", "✗ Not authenticated".red());
-        println!("Run 'noet auth login' to authenticate first.");
+        println!("{}", "✗ 未認証".red());
+        println!("先に 'noet auth login' を実行して認証してください。");
         return Ok(());
     }
 
-    println!("{}", "Refreshing authentication...".cyan());
+    println!("{}", "認証情報を更新しています...".cyan());
     login().await
 }
 
 pub async fn clear() -> Result<()> {
     if !Credentials::exists() {
-        println!("{}", "No credentials found.".yellow());
+        println!("{}", "認証情報が見つかりません。".yellow());
         return Ok(());
     }
 
     Credentials::delete()?;
-    println!("{}", "✓ Credentials cleared.".green());
+    println!("{}", "✓ 認証情報をクリアしました。".green());
 
     Ok(())
 }
