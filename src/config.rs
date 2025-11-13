@@ -66,8 +66,9 @@ impl Config {
             return Ok(config);
         }
 
-        let content = fs::read_to_string(&config_path)
-            .map_err(|e| NoetError::ConfigError(format!("Failed to read config file: {}", e)))?;
+        let content = fs::read_to_string(&config_path).map_err(|e| {
+            NoetError::ConfigError(format!("設定ファイルの読み込みに失敗しました: {}", e))
+        })?;
 
         let config: Config = toml::from_str(&content)?;
         Ok(config)
@@ -80,12 +81,12 @@ impl Config {
 
         if !workspace_config_path.exists() {
             return Err(NoetError::ConfigError(
-                "Workspace config not found".to_string(),
+                "ワークスペース設定が見つかりません".to_string(),
             ));
         }
 
         let content = fs::read_to_string(&workspace_config_path).map_err(|e| {
-            NoetError::ConfigError(format!("Failed to read workspace config: {}", e))
+            NoetError::ConfigError(format!("ワークスペース設定の読み込みに失敗しました: {}", e))
         })?;
 
         let config: Config = toml::from_str(&content)?;
@@ -112,22 +113,24 @@ impl Config {
 
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
-                NoetError::ConfigError(format!("Failed to create config directory: {}", e))
+                NoetError::ConfigError(format!("設定ディレクトリの作成に失敗しました: {}", e))
             })?;
         }
 
-        let content = toml::to_string_pretty(self)
-            .map_err(|e| NoetError::ConfigError(format!("Failed to serialize config: {}", e)))?;
+        let content = toml::to_string_pretty(self).map_err(|e| {
+            NoetError::ConfigError(format!("設定のシリアライズに失敗しました: {}", e))
+        })?;
 
-        fs::write(&config_path, content)
-            .map_err(|e| NoetError::ConfigError(format!("Failed to write config file: {}", e)))?;
+        fs::write(&config_path, content).map_err(|e| {
+            NoetError::ConfigError(format!("設定ファイルの書き込みに失敗しました: {}", e))
+        })?;
 
         Ok(())
     }
 
     pub fn config_path() -> Result<PathBuf> {
         let config_dir = config_dir().ok_or_else(|| {
-            NoetError::ConfigError("Could not determine config directory".to_string())
+            NoetError::ConfigError("設定ディレクトリを特定できません".to_string())
         })?;
 
         Ok(config_dir.join(APP_NAME).join(CONFIG_FILE))
@@ -135,7 +138,7 @@ impl Config {
 
     pub fn config_dir() -> Result<PathBuf> {
         let config_dir = config_dir().ok_or_else(|| {
-            NoetError::ConfigError("Could not determine config directory".to_string())
+            NoetError::ConfigError("設定ディレクトリを特定できません".to_string())
         })?;
 
         Ok(config_dir.join(APP_NAME))

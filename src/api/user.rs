@@ -15,7 +15,7 @@ impl NoteClient {
         } else {
             Err(crate::error::NoetError::ApiError {
                 status: 404,
-                message: format!("User '{}' not found", username),
+                message: format!("ユーザー '{}' が見つかりません", username),
             })
         }
     }

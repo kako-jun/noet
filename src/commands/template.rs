@@ -35,22 +35,22 @@ pub fn list_templates() -> Result<()> {
     let templates = list_markdown_files_in_dir(&template_dir)?;
 
     if templates.is_empty() {
-        println!("{}", "No templates found.".yellow());
+        println!("{}", "テンプレートが見つかりません。".yellow());
         println!(
-            "\nCreate a new template with: {}",
+            "\n新しいテンプレートを作成: {}",
             "noet template add <NAME>".cyan()
         );
         return Ok(());
     }
 
-    println!("{}", "Available templates:".bold());
+    println!("{}", "利用可能なテンプレート:".bold());
     for template in templates {
         println!("  • {}", template.cyan());
     }
 
     println!(
-        "\nUse with: {}",
-        "noet new --template <NAME> \"Article Title\"".dimmed()
+        "\n使用方法: {}",
+        "noet new --template <NAME> \"記事タイトル\"".dimmed()
     );
 
     Ok(())
@@ -64,11 +64,14 @@ pub fn add_template(name: &str) -> Result<()> {
 
     if template_path.exists() {
         let overwrite = Confirm::new()
-            .with_prompt(format!("Template '{}' already exists. Overwrite?", name))
+            .with_prompt(format!(
+                "テンプレート '{}' は既に存在します。上書きしますか？",
+                name
+            ))
             .interact()?;
 
         if !overwrite {
-            println!("{}", "Cancelled.".yellow());
+            println!("{}", "キャンセルされました。".yellow());
             return Ok(());
         }
     }
@@ -94,7 +97,7 @@ tags:
     fs::write(&template_path, content)?;
 
     println!(
-        "{} Template '{}' created at {}",
+        "{} テンプレート '{}' を {} に作成しました",
         "✓".green(),
         name.bold(),
         template_path.display()
@@ -108,14 +111,14 @@ pub fn show_template(name: &str) -> Result<()> {
 
     if !template_path.exists() {
         return Err(NoetError::FileNotFound(format!(
-            "Template '{}' not found",
+            "テンプレート '{}' が見つかりません",
             name
         )));
     }
 
     let content = fs::read_to_string(&template_path)?;
 
-    println!("{}", format!("Template: {}", name).bold());
+    println!("{}", format!("テンプレート: {}", name).bold());
     println!("{}", "─".repeat(50).dimmed());
     println!("{}", content);
     println!("{}", "─".repeat(50).dimmed());
@@ -128,23 +131,27 @@ pub fn remove_template(name: &str) -> Result<()> {
 
     if !template_path.exists() {
         return Err(NoetError::FileNotFound(format!(
-            "Template '{}' not found",
+            "テンプレート '{}' が見つかりません",
             name
         )));
     }
 
     let confirm = Confirm::new()
-        .with_prompt(format!("Remove template '{}'?", name))
+        .with_prompt(format!("テンプレート '{}' を削除しますか？", name))
         .interact()?;
 
     if !confirm {
-        println!("{}", "Cancelled.".yellow());
+        println!("{}", "キャンセルされました。".yellow());
         return Ok(());
     }
 
     fs::remove_file(&template_path)?;
 
-    println!("{} Template '{}' removed", "✓".green(), name.bold());
+    println!(
+        "{} テンプレート '{}' を削除しました",
+        "✓".green(),
+        name.bold()
+    );
 
     Ok(())
 }

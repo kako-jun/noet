@@ -17,7 +17,7 @@ impl NoteClient {
         } else {
             Err(crate::error::NoetError::ApiError {
                 status: 404,
-                message: format!("Magazine '{}' not found", magazine_key),
+                message: format!("マガジン '{}' が見つかりません", magazine_key),
             })
         }
     }

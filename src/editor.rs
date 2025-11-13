@@ -69,7 +69,7 @@ pub fn open_in_editor<P: AsRef<Path>>(filepath: P) -> Result<()> {
 
     if parts.is_empty() {
         return Err(NoetError::ConfigError(
-            "Editor command is empty".to_string(),
+            "エディタコマンドが空です".to_string(),
         ));
     }
 
@@ -81,12 +81,12 @@ pub fn open_in_editor<P: AsRef<Path>>(filepath: P) -> Result<()> {
     command.arg(filepath.as_ref());
 
     let status = command.status().map_err(|e| {
-        NoetError::ConfigError(format!("Failed to launch editor '{}': {}", editor, e))
+        NoetError::ConfigError(format!("エディタ '{}' の起動に失敗しました: {}", editor, e))
     })?;
 
     if !status.success() {
         return Err(NoetError::ConfigError(format!(
-            "Editor exited with non-zero status: {}",
+            "エディタが異常終了しました: {}",
             status
         )));
     }

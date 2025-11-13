@@ -2,47 +2,47 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum NoetError {
-    #[error("HTTP request failed: {0}")]
+    #[error("HTTPリクエストに失敗しました: {0}")]
     HttpError(#[from] reqwest::Error),
 
-    #[error("Authentication failed: {0}")]
+    #[error("認証に失敗しました: {0}")]
     AuthError(String),
 
-    #[error("API error: {status} - {message}")]
+    #[error("APIエラー: {status} - {message}")]
     ApiError { status: u16, message: String },
 
-    #[error("Configuration error: {0}")]
+    #[error("設定エラー: {0}")]
     ConfigError(String),
 
-    #[error("IO error: {0}")]
+    #[error("IOエラー: {0}")]
     IoError(#[from] std::io::Error),
 
-    #[error("Serialization error: {0}")]
+    #[error("シリアライズエラー: {0}")]
     SerdeError(#[from] serde_json::Error),
 
-    #[error("TOML parse error: {0}")]
+    #[error("TOML解析エラー: {0}")]
     TomlError(#[from] toml::de::Error),
 
-    #[error("Keyring error: {0}")]
+    #[error("キーリングエラー: {0}")]
     KeyringError(#[from] keyring::Error),
 
-    #[error("Dialoguer error: {0}")]
+    #[error("対話型入力エラー: {0}")]
     DialoguerError(#[from] dialoguer::Error),
 
-    #[error("File not found: {0}")]
+    #[error("ファイルが見つかりません: {0}")]
     FileNotFound(String),
 
-    #[error("Invalid input: {0}")]
+    #[error("無効な入力: {0}")]
     #[allow(dead_code)]
     InvalidInput(String),
 
-    #[error("Article not found: {0}")]
+    #[error("記事が見つかりません: {0}")]
     ArticleNotFound(String),
 
-    #[error("Missing required field: {0}")]
+    #[error("必須フィールドがありません: {0}")]
     MissingField(String),
 
-    #[error("Unknown error: {0}")]
+    #[error("不明なエラー: {0}")]
     #[allow(dead_code)]
     Unknown(String),
 }
@@ -55,43 +55,46 @@ mod tests {
 
     #[test]
     fn test_auth_error_display() {
-        let error = NoetError::AuthError("Test auth error".to_string());
-        assert_eq!(error.to_string(), "Authentication failed: Test auth error");
+        let error = NoetError::AuthError("テスト認証エラー".to_string());
+        assert_eq!(error.to_string(), "認証に失敗しました: テスト認証エラー");
     }
 
     #[test]
     fn test_api_error_display() {
         let error = NoetError::ApiError {
             status: 404,
-            message: "Not found".to_string(),
+            message: "見つかりません".to_string(),
         };
-        assert_eq!(error.to_string(), "API error: 404 - Not found");
+        assert_eq!(error.to_string(), "APIエラー: 404 - 見つかりません");
     }
 
     #[test]
     fn test_config_error_display() {
-        let error = NoetError::ConfigError("Config file missing".to_string());
+        let error = NoetError::ConfigError("設定ファイルが見つかりません".to_string());
         assert_eq!(
             error.to_string(),
-            "Configuration error: Config file missing"
+            "設定エラー: 設定ファイルが見つかりません"
         );
     }
 
     #[test]
     fn test_file_not_found_error_display() {
         let error = NoetError::FileNotFound("/path/to/file.md".to_string());
-        assert_eq!(error.to_string(), "File not found: /path/to/file.md");
+        assert_eq!(
+            error.to_string(),
+            "ファイルが見つかりません: /path/to/file.md"
+        );
     }
 
     #[test]
     fn test_article_not_found_error_display() {
         let error = NoetError::ArticleNotFound("article-123".to_string());
-        assert_eq!(error.to_string(), "Article not found: article-123");
+        assert_eq!(error.to_string(), "記事が見つかりません: article-123");
     }
 
     #[test]
     fn test_missing_field_error_display() {
         let error = NoetError::MissingField("title".to_string());
-        assert_eq!(error.to_string(), "Missing required field: title");
+        assert_eq!(error.to_string(), "必須フィールドがありません: title");
     }
 }

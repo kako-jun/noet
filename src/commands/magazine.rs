@@ -9,14 +9,14 @@ pub async fn add_to_magazine(magazine_key: &str, note_id: &str, note_key: &str) 
     let credentials = Credentials::load()?;
     let client = NoteClient::new(config, credentials)?;
 
-    println!("{}", "Adding article to magazine...".cyan());
+    println!("{}", "マガジンに記事を追加中...".cyan());
 
     client
         .add_to_magazine(magazine_key, note_id, note_key)
         .await?;
 
     println!(
-        "{} Article added to magazine '{}'",
+        "{} マガジン '{}' に記事を追加しました",
         "✓".green(),
         magazine_key
     );
@@ -29,12 +29,12 @@ pub async fn remove_from_magazine(magazine_key: &str, note_key: &str) -> Result<
     let credentials = Credentials::load()?;
     let client = NoteClient::new(config, credentials)?;
 
-    println!("{}", "Removing article from magazine...".cyan());
+    println!("{}", "マガジンから記事を削除中...".cyan());
 
     client.remove_from_magazine(magazine_key, note_key).await?;
 
     println!(
-        "{} Article removed from magazine '{}'",
+        "{} マガジン '{}' から記事を削除しました",
         "✓".green(),
         magazine_key
     );
