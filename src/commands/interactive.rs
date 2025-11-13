@@ -16,15 +16,15 @@ pub async fn run_interactive_mode() -> Result<()> {
 
     loop {
         let options = vec![
-            "📝 新規記事を作成",
-            "✏️  既存記事を編集",
-            "📤 記事を公開",
-            "📋 自分の記事一覧",
-            "🚪 終了",
+            "📝 [n] 新規記事を作成",
+            "✏️  [e] 既存記事を編集",
+            "📤 [p] 記事を公開",
+            "📋 [l] 自分の記事一覧",
+            "🚪 [q] 終了",
         ];
 
         let selection = Select::new()
-            .with_prompt("選択してください")
+            .with_prompt("選択してください (n/e/p/l/q)")
             .items(&options)
             .default(0)
             .interact()?;
