@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::error::{NoetError, Result};
+use crate::workspace;
 use colored::Colorize;
 use dialoguer::{Confirm, Editor};
 use std::fs;
@@ -163,8 +164,14 @@ pub fn load_template(name: &str, title: &str) -> Result<String> {
 }
 
 fn get_template_dir() -> Result<PathBuf> {
-    let config_dir = Config::config_dir()?;
-    Ok(config_dir.join("templates"))
+    // Try workspace templates first
+    if workspace::is_in_workspace() {
+        Ok(workspace::get_templates_dir()?)
+    } else {
+        // Fallback to global config directory
+        let config_dir = Config::config_dir()?;
+        Ok(config_dir.join("templates"))
+    }
 }
 
 fn get_template_path(name: &str) -> Result<PathBuf> {

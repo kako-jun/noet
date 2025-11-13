@@ -5,6 +5,7 @@ mod commands;
 mod config;
 mod error;
 mod models;
+mod workspace;
 
 use clap::Parser;
 use cli::{AuthCommands, Cli, Commands, MagazineCommands, TagCommands, TemplateCommands};
@@ -24,6 +25,10 @@ async fn run() -> error::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Init { path } => {
+            commands::workspace::init(path).await?;
+        }
+
         Commands::New { title, template } => {
             commands::article::new_article(title, template).await?;
         }
