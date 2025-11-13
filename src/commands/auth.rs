@@ -14,18 +14,18 @@ pub async fn login() -> Result<()> {
         .with_prompt("Enter your Note session cookie")
         .interact_text()?;
 
-    let csrf_token: String = Input::new()
-        .with_prompt("Enter CSRF token (optional, press Enter to skip)")
+    let xsrf_token: String = Input::new()
+        .with_prompt("Enter XSRF token (optional, press Enter to skip)")
         .allow_empty(true)
         .interact_text()?;
 
-    let csrf = if csrf_token.is_empty() {
+    let xsrf = if xsrf_token.is_empty() {
         None
     } else {
-        Some(csrf_token)
+        Some(xsrf_token)
     };
 
-    let credentials = Credentials::new(session_cookie, csrf);
+    let credentials = Credentials::new(session_cookie, xsrf);
     credentials.save()?;
 
     println!("{}", "\n✓ Authentication successful!".green());
@@ -43,8 +43,8 @@ pub async fn status() -> Result<()> {
             mask_cookie(&credentials.session_cookie)
         );
 
-        if let Some(ref csrf) = credentials.csrf_token {
-            println!("CSRF token: {}", mask_token(csrf));
+        if let Some(ref xsrf) = credentials.xsrf_token {
+            println!("XSRF token: {}", mask_token(xsrf));
         }
     } else {
         println!("{}", "✗ Not authenticated".red());
