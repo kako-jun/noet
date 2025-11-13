@@ -80,7 +80,7 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
     Ok(())
 }
 
-pub async fn publish_article(filepath: &Path, as_draft: bool) -> Result<()> {
+pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Result<()> {
     if !filepath.exists() {
         return Err(crate::error::NoetError::FileNotFound(
             filepath.display().to_string(),
@@ -117,9 +117,43 @@ pub async fn publish_article(filepath: &Path, as_draft: bool) -> Result<()> {
     let credentials = Credentials::load()?;
     let client = NoteClient::new(config, credentials)?;
 
+    // Check if this is an update (article_key or article_id exists in frontmatter)
+    let article_key = frontmatter.get("article_key");
+    let is_update = article_key.is_some();
+
+    // Show diff for updates (unless --force is used)
+    if is_update && !force {
+        let key = article_key.unwrap();
+        println!("{}", format!("Fetching remote article '{}'...", key).cyan());
+
+        match client.get_article(key).await {
+            Ok(remote_article) => {
+                // Show TUI diff
+                let tui_title = format!("Publishing: {} (Article Key: {})", title, key);
+                let should_publish =
+                    crate::tui_diff::show_diff_tui(&tui_title, &remote_article.body, &body)?;
+
+                if !should_publish {
+                    println!("{}", "Cancelled.".yellow());
+                    return Ok(());
+                }
+            }
+            Err(e) => {
+                println!(
+                    "{} Could not fetch remote article: {}",
+                    "Warning:".yellow(),
+                    e
+                );
+                println!("{}", "Publishing anyway...".dimmed());
+            }
+        }
+    }
+
     println!("{}", "Publishing article to Note...".cyan());
 
-    let article = client.create_article(title, body, status, tags).await?;
+    let article = client
+        .create_article(title.clone(), body, status, tags)
+        .await?;
 
     println!(
         "{} {}",
@@ -129,6 +163,43 @@ pub async fn publish_article(filepath: &Path, as_draft: bool) -> Result<()> {
     if let Some(id) = article.id {
         println!("{} {}", "Article ID:".green(), id);
     }
+
+    Ok(())
+}
+
+pub async fn show_diff(filepath: &Path) -> Result<()> {
+    if !filepath.exists() {
+        return Err(crate::error::NoetError::FileNotFound(
+            filepath.display().to_string(),
+        ));
+    }
+
+    let content = fs::read_to_string(filepath)?;
+    let (frontmatter, body) = parse_markdown(&content)?;
+
+    let title = frontmatter
+        .get("title")
+        .ok_or_else(|| crate::error::NoetError::MissingField("title".to_string()))?;
+
+    let article_key = frontmatter.get("article_key").ok_or_else(|| {
+        crate::error::NoetError::MissingField(
+            "article_key not found. This file may not have been published yet.".to_string(),
+        )
+    })?;
+
+    let config = Config::load()?;
+    let credentials = Credentials::load()?;
+    let client = NoteClient::new(config, credentials)?;
+
+    println!(
+        "{}",
+        format!("Fetching remote article '{}'...", article_key).cyan()
+    );
+
+    let remote_article = client.get_article(article_key).await?;
+
+    let tui_title = format!("Diff: {} (Article Key: {})", title, article_key);
+    crate::tui_diff::show_diff_tui(&tui_title, &remote_article.body, &body)?;
 
     Ok(())
 }
