@@ -5,6 +5,7 @@ mod commands;
 mod config;
 mod error;
 mod models;
+mod tui_diff;
 mod workspace;
 
 use clap::Parser;
@@ -33,8 +34,12 @@ async fn run() -> error::Result<()> {
             commands::article::new_article(title, template).await?;
         }
 
-        Commands::Publish { file, draft } => {
-            commands::article::publish_article(&file, draft).await?;
+        Commands::Publish { file, draft, force } => {
+            commands::article::publish_article(&file, draft, force).await?;
+        }
+
+        Commands::Diff { file } => {
+            commands::article::show_diff(&file).await?;
         }
 
         Commands::Edit { id, file } => {

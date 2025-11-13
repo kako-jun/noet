@@ -36,6 +36,16 @@ pub enum Commands {
         /// Publish as draft
         #[arg(short, long)]
         draft: bool,
+
+        /// Skip diff confirmation and force publish
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// Show diff between local and remote article
+    Diff {
+        /// Path to the markdown file
+        file: PathBuf,
     },
 
     /// Update an existing article
