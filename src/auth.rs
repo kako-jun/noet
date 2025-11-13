@@ -1,20 +1,5 @@
 use crate::error::{NoetError, Result};
-use keyring::Entry;
 use serde::{Deserialize, Serialize};
-
-const SERVICE_NAME: &str = "noet";
-const COOKIE_KEY: &str = "note_session_cookie";
-const XSRF_TOKEN_KEY: &str = "note_xsrf_token";
-
-/// Helper function to get keyring entry for session cookie
-fn get_cookie_entry() -> Result<Entry> {
-    Entry::new(SERVICE_NAME, COOKIE_KEY).map_err(NoetError::KeyringError)
-}
-
-/// Helper function to get keyring entry for XSRF token
-fn get_xsrf_entry() -> Result<Entry> {
-    Entry::new(SERVICE_NAME, XSRF_TOKEN_KEY).map_err(NoetError::KeyringError)
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Credentials {
@@ -23,6 +8,7 @@ pub struct Credentials {
 }
 
 impl Credentials {
+    #[allow(dead_code)]
     pub fn new(session_cookie: String, xsrf_token: Option<String>) -> Self {
         Self {
             session_cookie,
@@ -30,36 +16,15 @@ impl Credentials {
         }
     }
 
-    /// Save credentials to system keyring
-    pub fn save(&self) -> Result<()> {
-        let cookie_entry = get_cookie_entry()?;
-        cookie_entry
-            .set_password(&self.session_cookie)
-            .map_err(NoetError::KeyringError)?;
-
-        if let Some(ref xsrf_token) = self.xsrf_token {
-            let xsrf_entry = get_xsrf_entry()?;
-            xsrf_entry
-                .set_password(xsrf_token)
-                .map_err(NoetError::KeyringError)?;
-        }
-
-        Ok(())
-    }
-
-    /// Load credentials from system keyring
+    /// Load credentials from environment variables
     pub fn load() -> Result<Self> {
-        let cookie_entry = get_cookie_entry()?;
-        let session_cookie = cookie_entry.get_password().map_err(|e| {
-            NoetError::AuthError(format!(
-                "認証されていません。先に 'noet auth login' を実行してください。エラー: {}",
-                e
-            ))
+        let session_cookie = std::env::var("NOET_SESSION_COOKIE").map_err(|_| {
+            NoetError::AuthError(
+                "認証されていません。環境変数 NOET_SESSION_COOKIE を設定してください。".to_string(),
+            )
         })?;
 
-        let xsrf_token = get_xsrf_entry()
-            .and_then(|entry| entry.get_password().map_err(NoetError::KeyringError))
-            .ok();
+        let xsrf_token = std::env::var("NOET_XSRF_TOKEN").ok();
 
         Ok(Self {
             session_cookie,
@@ -67,25 +32,9 @@ impl Credentials {
         })
     }
 
-    /// Check if credentials exist
+    /// Check if credentials exist in environment
     pub fn exists() -> bool {
-        get_cookie_entry()
-            .and_then(|entry| entry.get_password().map_err(NoetError::KeyringError))
-            .is_ok()
-    }
-
-    /// Delete credentials from system keyring
-    pub fn delete() -> Result<()> {
-        let cookie_entry = get_cookie_entry()?;
-        cookie_entry
-            .delete_credential()
-            .map_err(NoetError::KeyringError)?;
-
-        // Try to delete XSRF token, but don't fail if it doesn't exist
-        let _ = get_xsrf_entry()
-            .and_then(|entry| entry.delete_credential().map_err(NoetError::KeyringError));
-
-        Ok(())
+        std::env::var("NOET_SESSION_COOKIE").is_ok()
     }
 }
 

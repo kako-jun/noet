@@ -6,6 +6,8 @@ use crate::editor;
 use crate::error::Result;
 use crate::workspace;
 use colored::Colorize;
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use dialoguer::Select;
 use std::env;
 use std::fs;
@@ -15,7 +17,7 @@ pub async fn run_interactive_mode() -> Result<()> {
     println!();
 
     loop {
-        let options = vec![
+        let options = [
             "📝 [n] 新規記事を作成",
             "✏️  [e] 既存記事を編集",
             "📤 [p] 記事を公開",
@@ -23,11 +25,15 @@ pub async fn run_interactive_mode() -> Result<()> {
             "🚪 [q] 終了",
         ];
 
-        let selection = Select::new()
-            .with_prompt("選択してください (n/e/p/l/q)")
-            .items(&options)
-            .default(0)
-            .interact()?;
+        println!("{}", "選択してください:".bold());
+        for (i, option) in options.iter().enumerate() {
+            println!("  {}. {}", i + 1, option);
+        }
+        println!();
+        print!("キー入力 (n/e/p/l/q または 1-5): ");
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        let selection = read_menu_input()?;
 
         println!();
 
@@ -40,13 +46,43 @@ pub async fn run_interactive_mode() -> Result<()> {
                 println!("{}", "終了します".dimmed());
                 break;
             }
-            _ => unreachable!(),
+            _ => {
+                println!("{}", "無効な選択です".yellow());
+                continue;
+            }
         }
 
         println!();
     }
 
     Ok(())
+}
+
+fn read_menu_input() -> Result<usize> {
+    enable_raw_mode()?;
+
+    let selection = loop {
+        if let Event::Key(KeyEvent { code, .. }) = event::read()? {
+            let result = match code {
+                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Char('1') => Some(0),
+                KeyCode::Char('e') | KeyCode::Char('E') | KeyCode::Char('2') => Some(1),
+                KeyCode::Char('p') | KeyCode::Char('P') | KeyCode::Char('3') => Some(2),
+                KeyCode::Char('l') | KeyCode::Char('L') | KeyCode::Char('4') => Some(3),
+                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Char('5') => Some(4),
+                KeyCode::Esc => Some(4),
+                _ => None,
+            };
+
+            if let Some(selection) = result {
+                break selection;
+            }
+        }
+    };
+
+    disable_raw_mode()?;
+    println!();
+
+    Ok(selection)
 }
 
 async fn create_new_article() -> Result<()> {

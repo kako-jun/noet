@@ -129,17 +129,8 @@ async fn run() -> error::Result<()> {
         },
 
         Commands::Auth(auth_cmd) => match auth_cmd {
-            AuthCommands::Login => {
-                commands::auth::login().await?;
-            }
             AuthCommands::Status => {
                 commands::auth::status().await?;
-            }
-            AuthCommands::Refresh => {
-                commands::auth::refresh().await?;
-            }
-            AuthCommands::Clear => {
-                commands::auth::clear().await?;
             }
         },
     }

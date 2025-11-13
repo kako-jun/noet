@@ -208,15 +208,6 @@ pub enum TemplateCommands {
 
 #[derive(Subcommand)]
 pub enum AuthCommands {
-    /// Login to Note
-    Login,
-
-    /// Show authentication status
+    /// Show authentication status and setup instructions
     Status,
-
-    /// Refresh authentication
-    Refresh,
-
-    /// Clear saved credentials
-    Clear,
 }

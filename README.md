@@ -42,7 +42,7 @@
 - **マガジン管理**: 記事のマガジン追加・削除
 - **エンゲージメント**: いいね/いいね解除、コメント閲覧
 - **ユーザー情報**: ユーザープロフィールと統計情報の取得
-- **安全な認証**: 認証情報はシステムキーリングに安全に保存
+- **安全な認証**: 環境変数による認証情報の管理
 - **レート制限**: 500ms固定のレート制限でIPバンを防止
 - **完全日本語化**: すべてのメッセージを日本語で表示
 - **Hugoライクなインターフェース**: frontmatter付きMarkdownベースの記事作成
@@ -125,25 +125,84 @@ noet init  # .noet/ディレクトリを作成
 
 ### 2. 認証
 
-Noteアカウントで認証します：
+環境変数で認証情報を設定します：
 
 ```bash
-noet auth login
+noet auth status  # セットアップ手順を表示
 ```
 
 <!-- スクリーンショット予定地 -->
 <!-- ![Login](docs/images/login.png) -->
 
 以下の手順が必要です：
-1. ブラウザで https://note.com にログイン
+
+**1. ブラウザでクッキーを取得:**
+1. https://note.com にログイン
 2. 開発者ツール (F12) → Application/Storage → Cookies を開く
 3. `_note_session_v5` クッキーの値をコピー
-4. プロンプトに貼り付け
 
-認証状態を確認：
+**2. シェル設定ファイルに環境変数を追加:**
+
+<details>
+<summary>Bash/Zsh (Linux/macOS)</summary>
+
+Linux: `~/.bashrc` または `~/.zshrc`
+macOS: `~/.bash_profile` または `~/.zshrc`
 
 ```bash
-noet auth status
+export NOET_SESSION_COOKIE="your_cookie_value"
+export NOET_XSRF_TOKEN="your_xsrf_token"  # オプション
+```
+</details>
+
+<details>
+<summary>Fish</summary>
+
+`~/.config/fish/config.fish`
+
+```fish
+set -x NOET_SESSION_COOKIE "your_cookie_value"
+set -x NOET_XSRF_TOKEN "your_xsrf_token"  # オプション
+```
+</details>
+
+<details>
+<summary>PowerShell (Windows)</summary>
+
+プロフィールに追加：
+
+```powershell
+$env:NOET_SESSION_COOKIE = "your_cookie_value"
+$env:NOET_XSRF_TOKEN = "your_xsrf_token"  # オプション
+```
+</details>
+
+<details>
+<summary>CMD (Windows)</summary>
+
+システム環境変数として設定：
+
+```cmd
+setx NOET_SESSION_COOKIE "your_cookie_value"
+setx NOET_XSRF_TOKEN "your_xsrf_token"
+```
+</details>
+
+**3. 設定を反映:**
+```bash
+source ~/.zshrc   # Zsh (macOS標準/Linux)
+source ~/.bashrc  # Bash (Linux)
+source ~/.bash_profile  # Bash (macOS)
+# Windowsの場合は新しいターミナルを開く
+```
+
+**TIP: 一時的に使う場合**
+```bash
+# Unix系
+NOET_SESSION_COOKIE="..." noet list username
+
+# PowerShell
+$env:NOET_SESSION_COOKIE="..."; noet list username
 ```
 
 ### 3. インタラクティブモードで使う（推奨）
@@ -293,17 +352,8 @@ noet user <USERNAME>
 ### 認証
 
 ```bash
-# Noteにログイン
-noet auth login
-
-# 認証状態を確認
+# 認証状態の確認とセットアップ手順の表示
 noet auth status
-
-# 認証を更新
-noet auth refresh
-
-# 保存済み認証情報をクリア
-noet auth clear
 ```
 
 ## 設定
@@ -370,13 +420,15 @@ export HTTPS_PROXY=https://proxy.example.com:8080
 
 ### セキュリティ
 
-- **認証情報の保存**: システムキーリングに保存（macOS: Keychain、Linux: Secret Service、Windows: Credential Manager）
-- **暗号化**: OSレベルで自動的に暗号化されます
-  - macOS: AES-256
-  - Linux: OSレベルの暗号化（libsecret）
-  - Windows: DPAPI（Data Protection API）
-- **平文保存なし**: セッションクッキーは平文ファイルに保存されません
-- **XSRF保護**: XSRFトークンは自動的に管理されます
+- **認証情報の保存**: 環境変数による管理（シェル設定ファイル）
+- **設定ファイル保護**: シェル設定ファイルのパーミッションに注意（600推奨）
+- **Gitでの管理**: 設定ファイルを`.gitignore`に追加してコミットしない
+- **XSRF保護**: XSRFトークンは自動的にヘッダーに付与されます
+
+**推奨設定:**
+```bash
+chmod 600 ~/.bashrc ~/.zshrc  # Unix系
+```
 
 ## 開発
 
@@ -442,13 +494,14 @@ noet tag suggest rust
 ### 認証エラー
 
 ```
-Error: Not authenticated. Please run 'noet auth login' first.
+Error: 認証されていません。環境変数 NOET_SESSION_COOKIE を設定してください。
 ```
 
 **解決方法:**
-1. `noet auth clear` で既存の認証情報をクリア
-2. `noet auth login` で再ログイン
-3. セッションクッキーが有効か確認（ブラウザでログイン状態を確認）
+1. `noet auth status` でセットアップ手順を確認
+2. シェル設定ファイルに環境変数が設定されているか確認
+3. `source ~/.zshrc` などで設定をリロード
+4. セッションクッキーが有効か確認（ブラウザでログイン状態を確認）
 
 ### プロキシ環境での接続エラー
 
@@ -463,25 +516,20 @@ export HTTPS_PROXY=https://proxy.example.com:8080
 noet auth status  # 接続テスト
 ```
 
-### Linux での keyring エラー
+### 環境変数が反映されない
 
-```
-Error: Keyring error: No keyring found
-```
-
-**解決方法（Ubuntu/Debian）:**
+**解決方法:**
 ```bash
-sudo apt-get install gnome-keyring libsecret-1-0
+# 現在のシェルで環境変数を確認
+echo $NOET_SESSION_COOKIE
+
+# 設定ファイルをリロード
+source ~/.zshrc   # Zsh
+source ~/.bashrc  # Bash (Linux)
+source ~/.bash_profile  # Bash (macOS)
+
+# または新しいターミナルウィンドウを開く
 ```
-
-**解決方法（Arch Linux）:**
-```bash
-sudo pacman -S gnome-keyring libsecret
-```
-
-### macOS での権限エラー
-
-初回起動時にキーチェーンへのアクセス許可を求められます。「許可」を選択してください。
 
 ## 開発
 
@@ -543,12 +591,7 @@ cargo run -- new "テスト記事"
 
 ### Q: セッションクッキーはどこに保存されますか？
 
-A: OSのキーリングに安全に保存されます：
-- **macOS**: Keychain (AES-256で暗号化)
-- **Linux**: Secret Service (libsecret)
-- **Windows**: Credential Manager (DPAPI)
-
-平文ファイルには保存されません。
+A: 環境変数として設定し、シェル設定ファイル（`~/.zshrc`、`~/.bashrc`など）に記載します。設定ファイルのパーミッションを適切に設定し（`chmod 600`）、Gitなどでコミットしないように注意してください。
 
 ### Q: note.comの公式ツールですか？
 

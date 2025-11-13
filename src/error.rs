@@ -23,9 +23,6 @@ pub enum NoetError {
     #[error("TOML解析エラー: {0}")]
     TomlError(#[from] toml::de::Error),
 
-    #[error("キーリングエラー: {0}")]
-    KeyringError(#[from] keyring::Error),
-
     #[error("対話型入力エラー: {0}")]
     DialoguerError(#[from] dialoguer::Error),
 
