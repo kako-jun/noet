@@ -7,7 +7,7 @@ mod error;
 mod models;
 
 use clap::Parser;
-use cli::{AuthCommands, Cli, Commands, MagazineCommands, TagCommands};
+use cli::{AuthCommands, Cli, Commands, MagazineCommands, TagCommands, TemplateCommands};
 use colored::Colorize;
 
 #[tokio::main]
@@ -24,8 +24,8 @@ async fn run() -> error::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::New { title } => {
-            commands::article::new_article(title).await?;
+        Commands::New { title, template } => {
+            commands::article::new_article(title, template).await?;
         }
 
         Commands::Publish { file, draft } => {
@@ -91,6 +91,21 @@ async fn run() -> error::Result<()> {
         } => {
             commands::export::export_articles(article_key, all, username, output, page).await?;
         }
+
+        Commands::Template(template_cmd) => match template_cmd {
+            TemplateCommands::List => {
+                commands::template::list_templates().await?;
+            }
+            TemplateCommands::Add { name } => {
+                commands::template::add_template(&name).await?;
+            }
+            TemplateCommands::Show { name } => {
+                commands::template::show_template(&name).await?;
+            }
+            TemplateCommands::Remove { name } => {
+                commands::template::remove_template(&name).await?;
+            }
+        },
 
         Commands::Auth(auth_cmd) => match auth_cmd {
             AuthCommands::Login => {
