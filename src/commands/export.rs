@@ -48,7 +48,7 @@ async fn export_single_article(
 ) -> Result<()> {
     println!(
         "{}",
-        format!("Exporting article '{}'...", article_key).cyan()
+        format!("記事 '{}' をエクスポート中...", article_key).cyan()
     );
 
     let article = client.get_article(article_key).await?;
@@ -63,7 +63,7 @@ async fn export_single_article(
     fs::write(output_file, markdown)?;
 
     println!(
-        "{} Article exported to {}",
+        "{} 記事を {} にエクスポートしました",
         "✓".green(),
         output_file.display()
     );
@@ -79,7 +79,7 @@ async fn export_all_articles(
 ) -> Result<()> {
     println!(
         "{}",
-        format!("Exporting all articles from user '{}'...", username).cyan()
+        format!("ユーザー '{}' のすべての記事をエクスポート中...", username).cyan()
     );
 
     fs::create_dir_all(output_dir)?;
@@ -90,7 +90,7 @@ async fn export_all_articles(
     loop {
         println!(
             "\n{}",
-            format!("Fetching page {}...", current_page).dimmed()
+            format!("ページ {} を取得中...", current_page).dimmed()
         );
 
         let articles = client.list_articles(username, current_page).await?;
@@ -103,7 +103,7 @@ async fn export_all_articles(
             let _key = article
                 .key
                 .as_ref()
-                .ok_or_else(|| NoetError::MissingField("Article key is missing".to_string()))?;
+                .ok_or_else(|| NoetError::MissingField("記事キーがありません".to_string()))?;
 
             // Sanitize filename
             let filename = sanitize_filename(&article.name);
@@ -113,7 +113,7 @@ async fn export_all_articles(
             fs::write(&output_file, markdown)?;
 
             println!(
-                "  {} Exported: {} -> {}",
+                "  {} エクスポート完了: {} -> {}",
                 "✓".green(),
                 article.name.bold(),
                 output_file.display().to_string().dimmed()
@@ -126,7 +126,7 @@ async fn export_all_articles(
     }
 
     println!(
-        "\n{} Exported {} articles to {}",
+        "\n{} {} 件の記事を {} にエクスポートしました",
         "✓".green().bold(),
         total_exported.to_string().bold(),
         output_dir.display()

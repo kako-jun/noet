@@ -52,7 +52,7 @@ impl Credentials {
         let cookie_entry = get_cookie_entry()?;
         let session_cookie = cookie_entry.get_password().map_err(|e| {
             NoetError::AuthError(format!(
-                "Not authenticated. Please run 'noet auth login' first. Error: {}",
+                "認証されていません。先に 'noet auth login' を実行してください。エラー: {}",
                 e
             ))
         })?;

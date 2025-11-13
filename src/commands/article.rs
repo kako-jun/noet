@@ -82,8 +82,8 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
     // Check if in workspace
     if !workspace::is_in_workspace() {
         println!(
-            "{} Not in a noet workspace. Run {} to initialize.",
-            "Warning:".yellow(),
+            "{} noet ワークスペース内ではありません。初期化するには {} を実行してください。",
+            "警告:".yellow(),
             "noet init".cyan()
         );
     }
@@ -91,7 +91,7 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
     let article_title = match title {
         Some(t) => t,
         None => Input::<String>::new()
-            .with_prompt("Article title")
+            .with_prompt("記事タイトル")
             .interact_text()?,
     };
 
@@ -104,20 +104,23 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
     if filepath.exists() {
         let overwrite = Confirm::new()
             .with_prompt(format!(
-                "File '{}' already exists. Overwrite?",
+                "ファイル '{}' は既に存在します。上書きしますか？",
                 filepath.display()
             ))
             .interact()?;
 
         if !overwrite {
-            println!("{}", "Cancelled.".yellow());
+            println!("{}", "キャンセルされました。".yellow());
             return Ok(());
         }
     }
 
     let content = if let Some(ref template) = template_name {
         // Use template
-        println!("{}", format!("Using template '{}'...", template).cyan());
+        println!(
+            "{}",
+            format!("テンプレート '{}' を使用します...", template).cyan()
+        );
         template::load_template(template, &article_title)?
     } else {
         // Use default template
@@ -126,7 +129,7 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
 
     fs::write(&filepath, content)?;
 
-    println!("{} {}", "Created article:".green(), filepath.display());
+    println!("{} {}", "記事を作成しました:".green(), filepath.display());
 
     Ok(())
 }
@@ -156,32 +159,32 @@ pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Re
     // Show diff for updates (unless --force is used)
     if is_update && !force {
         let key = article_key.unwrap();
-        println!("{}", format!("Fetching remote article '{}'...", key).cyan());
+        println!("{}", format!("リモート記事 '{}' を取得中...", key).cyan());
 
         match client.get_article(key).await {
             Ok(remote_article) => {
                 // Show TUI diff
-                let tui_title = format!("Publishing: {} (Article Key: {})", title, key);
+                let tui_title = format!("公開: {} (記事キー: {})", title, key);
                 let should_publish =
                     crate::tui_diff::show_diff_tui(&tui_title, &remote_article.body, &body)?;
 
                 if !should_publish {
-                    println!("{}", "Cancelled.".yellow());
+                    println!("{}", "キャンセルされました。".yellow());
                     return Ok(());
                 }
             }
             Err(e) => {
                 println!(
-                    "{} Could not fetch remote article: {}",
-                    "Warning:".yellow(),
+                    "{} リモート記事を取得できませんでした: {}",
+                    "警告:".yellow(),
                     e
                 );
-                println!("{}", "Publishing anyway...".dimmed());
+                println!("{}", "このまま公開します...".dimmed());
             }
         }
     }
 
-    println!("{}", "Publishing article to Note...".cyan());
+    println!("{}", "Note に記事を公開中...".cyan());
 
     let article = client
         .create_article(title.clone(), body, status, tags)
@@ -189,11 +192,11 @@ pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Re
 
     println!(
         "{} {}",
-        "Article published:".green(),
+        "記事を公開しました:".green(),
         article.key.unwrap_or_default()
     );
     if let Some(id) = article.id {
-        println!("{} {}", "Article ID:".green(), id);
+        println!("{} {}", "記事ID:".green(), id);
     }
 
     Ok(())
@@ -236,13 +239,13 @@ pub async fn edit_article(article_id: &str, filepath: &Path) -> Result<()> {
 
     let client = create_client()?;
 
-    println!("{}", "Updating article on Note...".cyan());
+    println!("{}", "Note で記事を更新中...".cyan());
 
     client
         .update_article(article_id, title, Some(body), status, tags)
         .await?;
 
-    println!("{} {}", "Article updated:".green(), article_id);
+    println!("{} {}", "記事を更新しました:".green(), article_id);
 
     Ok(())
 }
@@ -251,24 +254,24 @@ pub async fn delete_article(article_id: &str, force: bool) -> Result<()> {
     if !force {
         let confirm = Confirm::new()
             .with_prompt(format!(
-                "Delete article '{}'? This cannot be undone.",
+                "記事 '{}' を削除しますか？この操作は取り消せません。",
                 article_id
             ))
             .interact()?;
 
         if !confirm {
-            println!("{}", "Cancelled.".yellow());
+            println!("{}", "キャンセルされました。".yellow());
             return Ok(());
         }
     }
 
     let client = create_client()?;
 
-    println!("{}", "Deleting article...".cyan());
+    println!("{}", "記事を削除中...".cyan());
 
     client.delete_article(article_id).await?;
 
-    println!("{} {}", "Article deleted:".green(), article_id);
+    println!("{} {}", "記事を削除しました:".green(), article_id);
 
     Ok(())
 }
@@ -276,16 +279,16 @@ pub async fn delete_article(article_id: &str, force: bool) -> Result<()> {
 pub async fn list_articles(username: &str, page: u32) -> Result<()> {
     let client = create_client()?;
 
-    println!("{}", "Fetching articles...".cyan());
+    println!("{}", "記事を取得中...".cyan());
 
     let articles = client.list_articles(username, page).await?;
 
     if articles.is_empty() {
-        println!("{}", "No articles found.".yellow());
+        println!("{}", "記事が見つかりませんでした。".yellow());
         return Ok(());
     }
 
-    println!("\n{} articles found:\n", articles.len());
+    println!("\n{} 件の記事が見つかりました:\n", articles.len());
 
     for article in articles {
         print_article_summary(&article);

@@ -7,27 +7,24 @@ pub async fn init(path: Option<PathBuf>) -> Result<()> {
     let workspace_root = ws::init_workspace(path)?;
 
     println!(
-        "{} Initialized noet workspace at {}",
+        "{} {} に noet ワークスペースを初期化しました",
         "✓".green().bold(),
         workspace_root.display().to_string().cyan()
     );
 
-    println!("\nCreated:");
-    println!("  • {} - Configuration directory", ".noet/".dimmed());
-    println!("  • {} - Templates directory", "templates/".dimmed());
-    println!("  • {} - Updated gitignore", ".gitignore".dimmed());
+    println!("\n作成されたファイル:");
+    println!("  • {} - 設定ディレクトリ", ".noet/".dimmed());
+    println!("  • {} - テンプレートディレクトリ", "templates/".dimmed());
+    println!("  • {} - .gitignore を更新", ".gitignore".dimmed());
 
-    println!("\n{}", "Next steps:".bold());
+    println!("\n{}", "次のステップ:".bold());
+    println!("  1. 新規記事を作成: {}", "noet new \"My Article\"".cyan());
     println!(
-        "  1. Create a new article: {}",
-        "noet new \"My Article\"".cyan()
-    );
-    println!(
-        "  2. Create a template: {}",
+        "  2. テンプレートを作成: {}",
         "noet template add my-template".cyan()
     );
     println!(
-        "  3. Export articles: {}",
+        "  3. 記事をエクスポート: {}",
         "noet export --all --username <USER>".cyan()
     );
 

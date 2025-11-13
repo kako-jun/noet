@@ -30,7 +30,7 @@ impl NoteClient {
         } else {
             Err(crate::error::NoetError::ApiError {
                 status: 404,
-                message: format!("Hashtag '{}' not found", hashtag_name),
+                message: format!("ハッシュタグ '{}' が見つかりません", hashtag_name),
             })
         }
     }

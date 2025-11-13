@@ -42,7 +42,8 @@ impl NoteClient {
     pub fn get_username(&self) -> Result<String> {
         self.config.username.clone().ok_or_else(|| {
             NoetError::ConfigError(
-                "Username not configured. Please set username in config.toml".to_string(),
+                "ユーザー名が設定されていません。config.toml でユーザー名を設定してください"
+                    .to_string(),
             )
         })
     }
