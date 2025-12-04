@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "noet",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "noet CLI companion extension for Note.com",
   "permissions": [
     "activeTab",
@@ -10,7 +10,8 @@
     "nativeMessaging"
   ],
   "host_permissions": [
-    "https://note.com/*"
+    "https://note.com/*",
+    "https://editor.note.com/*"
   ],
   "background": {
     "service_worker": "src/background.js",
@@ -18,7 +19,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://note.com/*"],
+      "matches": ["https://note.com/*", "https://editor.note.com/*"],
       "js": ["src/content.js"],
       "run_at": "document_idle"
     }

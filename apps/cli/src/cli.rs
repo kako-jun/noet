@@ -16,6 +16,9 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Setup browser extension (download, install guide, configure native messaging)
+    Setup,
+
     /// Initialize a noet working directory
     Init {
         /// Directory path (default: current directory)

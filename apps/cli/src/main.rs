@@ -44,6 +44,10 @@ async fn run() -> error::Result<()> {
     };
 
     match command {
+        Commands::Setup => {
+            commands::setup::run_setup().await?;
+        }
+
         Commands::Init { path } => {
             commands::workspace::init(path).await?;
         }

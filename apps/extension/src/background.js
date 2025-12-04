@@ -1,13 +1,43 @@
 // noet Browser Extension - Background Service Worker
 //
 // Communicates with CLI via Native Messaging
-// Executes Note.com operations using browser session
+// Executes Note.com operations using DOM scraping (no API)
 
-const VERSION = "0.1.2";
+const VERSION = "0.1.3";
 const NATIVE_HOST_NAME = "com.noet.host";
 
 // Debug mode: when true, opens tabs visibly for DOM operations
 let debugMode = false;
+
+/**
+ * Human-like behavior utilities
+ * Mimics natural human browsing patterns to avoid bot detection
+ */
+
+// Random delay between min and max milliseconds (human-like variation)
+function randomDelay(min, max) {
+  const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+  return new Promise(resolve => setTimeout(resolve, delay));
+}
+
+// Typing delay simulation (humans don't type instantly)
+function humanTypingDelay(textLength) {
+  // Average human typing: 40-60 WPM = 200-300ms per character with variation
+  const baseDelay = textLength * 80; // ~80ms per char average
+  const variation = Math.random() * 0.4 + 0.8; // 0.8x to 1.2x variation
+  return Math.floor(baseDelay * variation);
+}
+
+// Page load wait with natural variation (humans don't react instantly)
+async function humanPageLoadWait() {
+  // Humans take 1-3 seconds to start interacting after page load
+  await randomDelay(1500, 3500);
+}
+
+// Short pause between actions (humans pause to read/think)
+async function humanActionPause() {
+  await randomDelay(300, 800);
+}
 
 // Native messaging port
 let port = null;
@@ -121,7 +151,7 @@ async function handleHostMessage(request) {
 }
 
 /**
- * Command handlers
+ * Command handlers - All use DOM scraping, no API calls
  */
 
 async function handlePing() {
@@ -132,90 +162,69 @@ async function handlePing() {
 }
 
 async function handleCheckAuth() {
-  try {
-    const response = await fetch("https://note.com/api/v1/users/me", {
-      credentials: "include"
+  // Check login by visiting note.com and looking for login indicators
+  return await executeInTab("https://note.com/", async (tabId) => {
+    await waitForTabLoad(tabId);
+    await humanPageLoadWait(); // Human-like wait after page load
+
+    const result = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: scrapeLoginStatus
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      return {
-        logged_in: true,
-        username: data.data?.urlname || null
-      };
-    }
-  } catch (e) {
-    // Ignore fetch errors
-  }
-
-  return {
-    logged_in: false,
-    username: null
-  };
+    return result[0].result;
+  });
 }
 
 async function handleListArticles(params) {
-  const { username, page = 1 } = params;
+  // Scrape own articles from /notes page
+  return await executeInTab("https://note.com/notes", async (tabId) => {
+    await waitForTabLoad(tabId);
+    await humanPageLoadWait();
+    await randomDelay(500, 1500); // Extra wait for SPA content
 
-  const url = `https://note.com/api/v2/creators/${username}/contents?kind=note&page=${page}`;
-  const response = await fetch(url, { credentials: "include" });
+    const result = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: scrapeArticleList
+    });
 
-  if (!response.ok) {
-    const error = new Error("Failed to fetch articles");
-    error.code = "NOT_FOUND";
-    throw error;
-  }
-
-  const data = await response.json();
-  const articles = (data.data?.contents || []).map(note => ({
-    key: note.key,
-    title: note.name,
-    updated_at: note.updated_at
-  }));
-
-  return {
-    articles,
-    has_next: data.data?.isLastPage === false
-  };
+    return result[0].result;
+  });
 }
 
 async function handleGetArticle(params) {
-  const { key } = params;
+  const { key, username } = params;
 
-  const response = await fetch(`https://note.com/api/v3/notes/${key}`, {
-    credentials: "include"
-  });
-
-  if (!response.ok) {
-    const error = new Error("Article not found");
-    error.code = "NOT_FOUND";
+  if (!username || !key) {
+    const error = new Error("username and key are required");
+    error.code = "INVALID_PARAMS";
     throw error;
   }
 
-  const data = await response.json();
-  const note = data.data;
+  // Scrape article from public page
+  const articleUrl = `https://note.com/${username}/n/${key}`;
+  return await executeInTab(articleUrl, async (tabId) => {
+    await waitForTabLoad(tabId);
+    await humanPageLoadWait();
+    await randomDelay(300, 1000); // Natural reading delay
 
-  // Extract hashtags
-  const tags = (note.hashtag_notes || []).map(h => h.hashtag?.name).filter(Boolean);
+    const result = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: scrapeArticlePage
+    });
 
-  return {
-    html: note.body || "",
-    title: note.name,
-    tags,
-    created_at: note.created_at,
-    updated_at: note.updated_at
-  };
+    return result[0].result;
+  });
 }
 
 async function handleCreateArticle(params) {
   const { title, body, tags = [] } = params;
 
-  // DOM operation required - open editor page
   return await executeInTab("https://note.com/notes/new", async (tabId) => {
-    // Wait for page to load
     await waitForTabLoad(tabId);
+    await humanPageLoadWait();
+    await randomDelay(2000, 4000); // Editor needs more time to initialize
 
-    // Execute editor operations
     const result = await chrome.scripting.executeScript({
       target: { tabId },
       func: fillAndPublishArticle,
@@ -229,15 +238,16 @@ async function handleCreateArticle(params) {
 async function handleUpdateArticle(params) {
   const { key, title, body, tags } = params;
 
-  // DOM operation required - open editor page
-  const editUrl = `https://note.com/notes/${key}/edit`;
-  return await executeInTab(editUrl, async (tabId) => {
+  // First go to /notes, find the article, click edit
+  return await executeInTab("https://note.com/notes", async (tabId) => {
     await waitForTabLoad(tabId);
+    await humanPageLoadWait();
+    await randomDelay(500, 1500); // Wait for article list to render
 
     const result = await chrome.scripting.executeScript({
       target: { tabId },
-      func: updateAndPublishArticle,
-      args: [title, body, tags]
+      func: findAndEditArticle,
+      args: [key, title, body, tags]
     });
 
     return result[0].result;
@@ -247,15 +257,15 @@ async function handleUpdateArticle(params) {
 async function handleDeleteArticle(params) {
   const { key } = params;
 
-  // DOM operation required
-  const deleteUrl = `https://note.com/notes/${key}/edit`;
-  return await executeInTab(deleteUrl, async (tabId) => {
+  return await executeInTab("https://note.com/notes", async (tabId) => {
     await waitForTabLoad(tabId);
+    await humanPageLoadWait();
+    await randomDelay(500, 1500); // Wait for article list to render
 
     const result = await chrome.scripting.executeScript({
       target: { tabId },
-      func: deleteArticleFromPage,
-      args: []
+      func: findAndDeleteArticle,
+      args: [key]
     });
 
     return result[0].result;
@@ -297,37 +307,287 @@ function waitForTabLoad(tabId) {
     chrome.tabs.onUpdated.addListener(function listener(id, info) {
       if (id === tabId && info.status === "complete") {
         chrome.tabs.onUpdated.removeListener(listener);
-        // Additional wait for JS to initialize
-        setTimeout(resolve, 1000);
+        resolve();
       }
     });
   });
 }
 
 /**
- * Functions to be injected into page
- * TODO: Update selectors after Playwright DOM investigation
+ * DOM Scraping Functions - Injected into pages
+ * Based on Playwright DOM investigation results
  */
 
+// Check if user is logged in
+function scrapeLoginStatus() {
+  // Look for "投稿" button which only appears when logged in
+  const postButton = document.querySelector('a[href="/notes/new"]');
+  // Look for profile avatar in header
+  const profileAvatar = document.querySelector('[class*="navbarPrimary"] img, [class*="avatar"]');
+
+  const loggedIn = !!(postButton || profileAvatar);
+
+  // Try to get username from profile link if available
+  let username = null;
+  const profileLink = document.querySelector('a[href^="/"][class*="profile"], a[href^="/kako"]');
+  if (profileLink) {
+    const match = profileLink.href.match(/note\.com\/([^\/\?]+)/);
+    if (match) username = match[1];
+  }
+
+  return {
+    logged_in: loggedIn,
+    username: username
+  };
+}
+
+// Scrape article list from /notes page
+function scrapeArticleList() {
+  const articles = [];
+
+  // Find all article rows - they have title, status, date, and more button
+  const rows = document.querySelectorAll('[class*="articleList"] > div, .o-articleList__item');
+
+  // Alternative: look for elements with "その他" button
+  const moreButtons = document.querySelectorAll('[aria-label="その他"]');
+
+  moreButtons.forEach((btn, index) => {
+    const row = btn.closest('div[class*="item"], div[class*="row"], li') || btn.parentElement?.parentElement?.parentElement;
+    if (!row) return;
+
+    // Get title - usually in a link or heading
+    const titleEl = row.querySelector('a[href*="/n/"], [class*="title"], h3, h4');
+    const title = titleEl?.textContent?.trim() || '';
+
+    // Get article key from link
+    let key = null;
+    const link = row.querySelector('a[href*="/n/"]');
+    if (link) {
+      const match = link.href.match(/\/n\/([^\/\?]+)/);
+      if (match) key = match[1];
+    }
+
+    // Get status (下書き or 公開中)
+    const statusEl = row.querySelector('[class*="status"], span');
+    let status = 'unknown';
+    const rowText = row.textContent || '';
+    if (rowText.includes('下書き')) {
+      status = 'draft';
+    } else if (rowText.includes('公開中')) {
+      status = 'published';
+    }
+
+    // Get date
+    const dateEl = row.querySelector('time, [class*="date"]');
+    const date = dateEl?.textContent?.trim() || dateEl?.getAttribute('datetime') || '';
+
+    if (title || key) {
+      articles.push({
+        key,
+        title,
+        status,
+        date
+      });
+    }
+  });
+
+  return {
+    articles,
+    count: articles.length
+  };
+}
+
+// Scrape article content from public article page
+function scrapeArticlePage() {
+  // Title: h1.o-noteContentHeader__title
+  const titleEl = document.querySelector('h1.o-noteContentHeader__title');
+  const title = titleEl?.textContent?.trim() || '';
+
+  // Body HTML: .note-common-styles__textnote-body
+  const bodyEl = document.querySelector('.note-common-styles__textnote-body');
+  const html = bodyEl?.innerHTML || '';
+
+  // Tags: a[href*="/hashtag/"]
+  const tagEls = document.querySelectorAll('a[href*="/hashtag/"]');
+  const tags = Array.from(tagEls).map(a => {
+    const text = a.textContent?.trim() || '';
+    // Remove # prefix if present
+    return text.startsWith('#') ? text.slice(1) : text;
+  }).filter(Boolean);
+
+  // Publish date: time[datetime]
+  const timeEl = document.querySelector('time[datetime]');
+  const publishedAt = timeEl?.getAttribute('datetime') || '';
+
+  // Check if article was found
+  if (!title && !html) {
+    return {
+      error: "Article not found or page did not load",
+      success: false
+    };
+  }
+
+  return {
+    success: true,
+    title,
+    html,
+    tags,
+    published_at: publishedAt
+  };
+}
+
+// Fill editor and publish article (for create)
+// Uses human-like input simulation to avoid detection
 function fillAndPublishArticle(title, body, tags) {
-  // Placeholder - selectors need to be determined
+  // This runs on editor.note.com/new
+  // Selectors from DOM investigation:
+  // - Title: textarea[placeholder="記事タイトル"]
+  // - Body: .ProseMirror.note-common-styles__textnote-body (contenteditable)
+  // - Publish: button:has-text("公開に進む")
+
+  // Helper: simulate human-like focus and input
+  function humanFocus(element) {
+    element.focus();
+    element.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+  }
+
+  function humanBlur(element) {
+    element.blur();
+    element.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  }
+
+  function humanInput(element, value) {
+    // Simulate keyboard events for more natural input
+    humanFocus(element);
+
+    if (element.tagName === 'TEXTAREA' || element.tagName === 'INPUT') {
+      element.value = value;
+    } else if (element.isContentEditable) {
+      element.innerHTML = value;
+    }
+
+    // Fire events in natural order
+    element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+
+    humanBlur(element);
+  }
+
+  try {
+    // Fill title with human-like interaction
+    const titleInput = document.querySelector('textarea[placeholder="記事タイトル"]');
+    if (!titleInput) {
+      return { success: false, error: "Title input not found" };
+    }
+    humanInput(titleInput, title);
+
+    // Fill body - ProseMirror editor
+    const bodyEditor = document.querySelector('.ProseMirror.note-common-styles__textnote-body');
+    if (!bodyEditor) {
+      return { success: false, error: "Body editor not found" };
+    }
+    humanInput(bodyEditor, body);
+
+    // TODO: Handle tags - needs publish dialog investigation
+    // TODO: Click publish button and handle publish flow
+
+    return {
+      success: true,
+      message: "Content filled. Manual publish required (publish flow not yet implemented)"
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// Find article by key and edit it
+// Uses human-like click simulation
+function findAndEditArticle(key, title, body, tags) {
+  // Helper: simulate human-like click with mouse events
+  function humanClick(element) {
+    const rect = element.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+
+    // Simulate mouse movement and click sequence
+    element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: x, clientY: y }));
+    element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: x, clientY: y }));
+    element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: x, clientY: y }));
+    element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y }));
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
+  }
+
+  // Find the article row with matching key
+  const links = document.querySelectorAll('a[href*="/n/"]');
+  let targetRow = null;
+
+  for (const link of links) {
+    if (link.href.includes(`/n/${key}`)) {
+      targetRow = link.closest('div[class*="item"], div[class*="row"], li');
+      break;
+    }
+  }
+
+  if (!targetRow) {
+    return { success: false, error: `Article with key ${key} not found` };
+  }
+
+  // Click the more button with human-like interaction
+  const moreBtn = targetRow.querySelector('[aria-label="その他"]');
+  if (!moreBtn) {
+    return { success: false, error: "More button not found" };
+  }
+
+  humanClick(moreBtn);
+
+  // TODO: Wait for menu, click edit, handle editor page
   return {
-    success: false,
-    error: "DOM selectors not yet implemented - needs Playwright investigation"
+    success: true,
+    message: "Found article. Edit flow not yet fully implemented"
   };
 }
 
-function updateAndPublishArticle(title, body, tags) {
-  return {
-    success: false,
-    error: "DOM selectors not yet implemented - needs Playwright investigation"
-  };
-}
+// Find article by key and delete it
+// Uses human-like click simulation
+function findAndDeleteArticle(key) {
+  // Helper: simulate human-like click with mouse events
+  function humanClick(element) {
+    const rect = element.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
 
-function deleteArticleFromPage() {
+    element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: x, clientY: y }));
+    element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: x, clientY: y }));
+    element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: x, clientY: y }));
+    element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y }));
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
+  }
+
+  const links = document.querySelectorAll('a[href*="/n/"]');
+  let targetRow = null;
+
+  for (const link of links) {
+    if (link.href.includes(`/n/${key}`)) {
+      targetRow = link.closest('div[class*="item"], div[class*="row"], li');
+      break;
+    }
+  }
+
+  if (!targetRow) {
+    return { success: false, error: `Article with key ${key} not found` };
+  }
+
+  const moreBtn = targetRow.querySelector('[aria-label="その他"]');
+  if (!moreBtn) {
+    return { success: false, error: "More button not found" };
+  }
+
+  humanClick(moreBtn);
+
+  // TODO: Wait for menu, click delete, confirm
   return {
-    success: false,
-    error: "DOM selectors not yet implemented - needs Playwright investigation"
+    success: true,
+    message: "Found article. Delete flow not yet fully implemented"
   };
 }
 

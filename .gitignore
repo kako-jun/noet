@@ -23,3 +23,6 @@ Thumbs.db
 .env.local
 .claude/settings.local.json
 .serena/
+
+# Investigation screenshots (temporary)
+screenshots/

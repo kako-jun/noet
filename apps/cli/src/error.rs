@@ -5,11 +5,17 @@ pub enum NoetError {
     #[error("HTTPリクエストに失敗しました: {0}")]
     HttpError(#[from] reqwest::Error),
 
+    #[error("ネットワークエラー: {0}")]
+    Network(String),
+
     #[error("認証に失敗しました: {0}")]
     AuthError(String),
 
     #[error("APIエラー: {status} - {message}")]
     ApiError { status: u16, message: String },
+
+    #[error("設定エラー: {0}")]
+    Config(String),
 
     #[error("設定エラー: {0}")]
     ConfigError(String),

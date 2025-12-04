@@ -4,6 +4,7 @@ pub mod engagement;
 pub mod export;
 pub mod interactive;
 pub mod magazine;
+pub mod setup;
 pub mod tag;
 pub mod template;
 pub mod user;
