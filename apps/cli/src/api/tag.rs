@@ -5,7 +5,7 @@ use crate::models::Hashtag;
 impl NoteClient {
     /// List all available hashtags
     pub async fn list_hashtags(&self, page: u32) -> Result<Vec<Hashtag>> {
-        let path = format!("/api/v2/hashtags?page={}", page);
+        let path = format!("/api/v2/hashtags?page={page}");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
@@ -20,7 +20,7 @@ impl NoteClient {
     /// Get hashtag details
     #[allow(dead_code)]
     pub async fn get_hashtag(&self, hashtag_name: &str) -> Result<Hashtag> {
-        let path = format!("/api/v2/hashtags/{}", hashtag_name);
+        let path = format!("/api/v2/hashtags/{hashtag_name}");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
@@ -30,7 +30,7 @@ impl NoteClient {
         } else {
             Err(crate::error::NoetError::ApiError {
                 status: 404,
-                message: format!("ハッシュタグ '{}' が見つかりません", hashtag_name),
+                message: format!("ハッシュタグ '{hashtag_name}' が見つかりません"),
             })
         }
     }
@@ -38,7 +38,7 @@ impl NoteClient {
     /// Search hashtags by query
     pub async fn search_hashtags(&self, query: &str) -> Result<Vec<Hashtag>> {
         // Use the article search API to find hashtags
-        let path = format!("/api/v3/searches?context=note&q=%23{}", query);
+        let path = format!("/api/v3/searches?context=note&q=%23{query}");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 

@@ -4,237 +4,374 @@
 
 ## アーキテクチャ概要
 
-### モジュール構造
+### システム構成
 
 ```
-src/
-├── main.rs           # エントリーポイント、引数パース、エラーハンドリング
-├── cli.rs            # Clapコマンド定義
-├── config.rs         # 設定ファイル管理
-├── auth.rs           # 環境変数による認証情報管理
-├── error.rs          # thiserrorによるカスタムエラー型
-├── models.rs         # API用のSerdeデータ構造
-├── editor.rs         # エディタ起動と設定管理
-├── tui_diff.rs       # TUI差分表示
-├── workspace.rs      # ワークスペース管理
-├── rate_limiter.rs   # レート制限（500ms固定）
-├── api/              # Note APIクライアント実装
-│   ├── mod.rs
-│   ├── client.rs     # reqwestベースのHTTPクライアント（レート制限統合）
-│   ├── article.rs    # 記事CRUD操作
-│   ├── tag.rs        # ハッシュタグ操作
-│   ├── magazine.rs   # マガジン管理操作
-│   ├── engagement.rs # いいね・コメント操作
-│   ├── user.rs       # ユーザープロフィール操作
-│   └── analytics.rs  # 統計情報操作
-└── commands/         # CLIコマンド実装
-    ├── mod.rs
-    ├── article.rs    # 記事管理コマンド
-    ├── tag.rs        # タグ管理コマンド
-    ├── magazine.rs   # マガジン管理コマンド
-    ├── engagement.rs # エンゲージメントコマンド
-    ├── user.rs       # ユーザー情報コマンド
-    ├── auth.rs       # 認証コマンド
-    ├── export.rs     # エクスポート機能（上書き警告付き）
-    ├── template.rs   # テンプレート管理
-    ├── workspace.rs  # ワークスペース初期化
-    └── interactive.rs # インタラクティブモード
+┌─────────────────┐                    ┌─────────────────────────┐
+│   noet (CLI)    │                    │  ブラウザ拡張            │
+│   Rust          │                    │  (バックグラウンド常駐)   │
+└────────┬────────┘                    └────────────┬────────────┘
+         │                                          │
+         │  1. リクエストファイル書き込み             │
+         ▼                                          │
+┌─────────────────┐                                 │
+│ ~/.noet/request │ ◄───────────────────────────────┘
+│   .json         │      2. ポーリングで読み取り (100-500ms)
+└─────────────────┘
+         │
+         │  3. 拡張がNote.comを操作（fetch/DOM操作）
+         │
+         ▼
+┌─────────────────┐
+│ ~/.noet/response│ ◄─── 4. 生HTMLを書き込み
+│   .json         │
+└────────┬────────┘
+         │
+         │  5. CLIが読み取り
+         ▼
+┌─────────────────┐
+│   noet (CLI)    │ ─── 6. HTML→MD変換、表示
+└─────────────────┘
 ```
 
-## Note非公式API仕様
+### 設計方針
 
-### ベースURL
+- **APIは使わない**: Note.comの非公式APIは不安定で認証が困難
+- **スクレイピングベース**: ブラウザ拡張がログイン済みセッションを利用
+- **責務分離**:
+  - 拡張: Note.comとの通信、生HTML取得/DOM操作のみ
+  - CLI: HTML↔Markdown変換、UI、すべてのロジック
+- **バージョン同期**: CLIと拡張は同一バージョンを強制（不整合時は更新を促す）
 
-```
-https://note.com
-```
-
-### 認証
-
-Cookieベースの認証を使用：
-- **セッションCookie**: `_note_session_v5` (必須)
-- **XSRFトークン**: `X-XSRF-TOKEN` ヘッダー (オプションだが推奨)
-
-### APIエンドポイント
-
-#### 記事 (v1, v2, v3)
+### モノレポ構成
 
 ```
-POST   /api/v1/text_notes                    # 記事作成
-PUT    /api/v1/text_notes/{id}               # 記事更新
-DELETE /api/v1/text_notes/{id}               # 記事削除
-POST   /api/v1/text_notes/draft_save?id={id} # 下書き保存
-GET    /api/v2/creators/{username}/contents  # ユーザー記事一覧
-GET    /api/v3/notes/{key}                   # 記事詳細取得
-GET    /api/v3/searches?context=note&q={q}   # 記事検索
+noet/
+├── apps/
+│   ├── cli/                    # Rust CLI
+│   │   ├── src/
+│   │   │   ├── main.rs
+│   │   │   ├── cli.rs          # Clapコマンド定義
+│   │   │   ├── config.rs       # 設定ファイル管理
+│   │   │   ├── error.rs        # カスタムエラー型
+│   │   │   ├── models.rs       # データ構造
+│   │   │   ├── editor.rs       # エディタ起動
+│   │   │   ├── rpc/            # 拡張との通信
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── client.rs   # リクエスト/レスポンス処理
+│   │   │   │   └── commands.rs # RPCコマンド定義
+│   │   │   ├── converters/     # HTML↔Markdown変換
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── html_to_md.rs
+│   │   │   │   └── md_to_html.rs
+│   │   │   └── commands/       # CLIコマンド実装
+│   │   ├── Cargo.toml
+│   │   └── README.md
+│   │
+│   └── extension/              # ブラウザ拡張 (Chrome/Firefox)
+│       ├── src/
+│       │   ├── background.js   # Service Worker（ポーリング）
+│       │   └── content.js      # Note.comページ操作
+│       ├── manifest.json
+│       └── README.md
+│
+├── protocol.yaml               # 共有RPC仕様
+├── .github/
+│   └── workflows/
+│       └── release.yml         # 両方まとめてビルド＆リリース
+├── CLAUDE.md                   # このファイル
+├── README.md                   # ユーザー向けドキュメント
+└── LICENSE
 ```
 
-#### タグ (v2)
+## RPC プロトコル仕様
 
-```
-GET    /api/v2/hashtags?page={page}          # ハッシュタグ一覧
-GET    /api/v2/hashtags/{name}               # ハッシュタグ詳細
-```
+### 通信方式
 
-#### マガジン (v1, v3)
+- **ファイルベースRPC**: `~/.noet/request.json` と `~/.noet/response.json`
+- **ポーリング**: 拡張が100-500ms間隔でリクエストファイルを監視
+- **同期的**: CLIはレスポンスを待機（タイムアウトあり）
 
-```
-GET    /api/v1/magazines/{key}                              # マガジン取得
-POST   /api/v1/our/magazines/{key}/notes                    # 記事追加
-DELETE /api/v1/our/magazines/{key}/notes/{note_key}         # 記事削除
-GET    /api/v3/searches?context=magazine&q={q}              # マガジン検索
-```
+### リクエスト形式
 
-#### エンゲージメント (v1, v3)
-
-```
-POST   /api/v3/notes/{key}/likes             # いいね
-DELETE /api/v3/notes/{key}/likes             # いいね解除
-GET    /api/v3/notes/{key}/likes             # いいね一覧
-GET    /api/v1/note/{id}/comments            # コメント取得
-POST   /api/v1/note/{id}/comments            # コメント投稿
-```
-
-#### ユーザー (v1, v2, v3)
-
-```
-GET    /api/v2/creators/{username}           # ユーザープロフィール
-GET    /api/v1/followings/{username}/list    # フォロー一覧
-GET    /api/v1/followers/{username}/list     # フォロワー一覧
-POST   /api/v3/users/{key}/following         # フォロー
-GET    /api/v3/searches?context=user&q={q}   # ユーザー検索
-```
-
-#### 統計 (v1, v3)
-
-```
-GET    /api/v1/stats/pv?page={page}          # PV統計
-GET    /api/v3/notice_counts                 # 通知数
-```
-
-## データモデル
-
-### Article
-
-```rust
-pub struct Article {
-    pub id: Option<String>,          // 内部ID
-    pub key: Option<String>,         // URL用のkey
-    pub name: String,                // タイトル
-    pub body: String,                // 本文（Markdown）
-    pub status: Option<ArticleStatus>, // published/draft/scheduled
-    pub hashtag_notes: Option<Vec<Hashtag>>,
-    pub publish_at: Option<DateTime<Utc>>,
-    pub like_count: Option<u32>,
-    pub comment_count: Option<u32>,
-    pub read_count: Option<u32>,
+```json
+{
+  "id": "uuid-v4",
+  "command": "get_article",
+  "params": {
+    "key": "n1234567890"
+  },
+  "timestamp": 1699999999999
 }
 ```
 
-### ArticleStatus
+### レスポンス形式
 
-```rust
-pub enum ArticleStatus {
-    Published,  // 公開済み
-    Draft,      // 下書き
-    Scheduled,  // 予約投稿
+```json
+{
+  "id": "uuid-v4",
+  "status": "success",
+  "data": {
+    "html": "<html>...</html>",
+    "title": "記事タイトル"
+  },
+  "timestamp": 1699999999999
 }
 ```
 
-## APIテスト結果
+### エラーレスポンス
 
-### 最終更新: 2025-11-14
+```json
+{
+  "id": "uuid-v4",
+  "status": "error",
+  "error": {
+    "code": "NOT_LOGGED_IN",
+    "message": "Note.comにログインしていません"
+  },
+  "timestamp": 1699999999999
+}
+```
 
-実際のNote.com APIを使用したテスト結果を記録します。
+### コマンド一覧
 
-### ✅ 正常動作するAPI
+#### ping
+拡張の存在確認とバージョンチェック。
 
-#### 認証確認 (`auth status`)
-- 環境変数から認証情報を読み込み
-- セッションクッキーとXSRFトークンをマスク表示
-- **動作**: 正常
+```yaml
+command: ping
+params: {}
+returns:
+  version: string      # 拡張のバージョン
+  extension_id: string
+```
 
-#### 記事一覧取得 (`list {username}`)
-- エンドポイント: `GET /api/v2/creators/{username}/contents?kind=note&page={page}`
-- ユーザーID（URLname）: `kako_jun`（アンダースコア）
-- ユーザー名（表示名）: `kako-jun`（ハイフン）
-- **動作**: 正常（6件の公開記事を取得成功）
+#### check_auth
+ログイン状態の確認。
 
-#### 記事取得 (`get_article`) - **✅ 解決済み**
-- エンドポイント: `GET /api/v3/notes/{key}`
-- **動作**: 正常
-- **重要**: `body`フィールドは**HTML形式**で返される（Markdownではない）
-- **検証結果**:
-  - ✅ すべてのメタデータ（id, key, name, status, like_count, comment_countなど）が正しく取得できる
-  - ✅ 本文（body）はHTML形式で16,000文字以上取得できる
-  - ✅ 以前の「bodyが常に空」問題は再現せず
-- **HTML構造**:
-  - `<p name="uuid" id="uuid">テキスト<br>改行</p>` - 段落
-  - `<h2 name="uuid" id="uuid">見出し</h2>` - 見出し
-  - `<figure>` - 埋め込みコンテンツ（外部リンク、画像など）
-  - `<img src="..." alt="" width="" height="">` - 画像
-- **必要な対応**: HTML→Markdown変換ライブラリの導入が必要
+```yaml
+command: check_auth
+params: {}
+returns:
+  logged_in: bool
+  username: string | null
+```
 
-### ❌ 動作しない・問題があるAPI
+#### list_articles
+公開記事一覧取得。
 
-#### 記事作成 (`create_article`)
-- エンドポイント: `POST /api/v1/text_notes`
-- **問題点**:
-  - APIレスポンス自体は返ってくる（IDとkeyが取得できる）
-  - しかしNote.comのGUI上で記事が確認できない
-  - レスポンスの`status`フィールドが空文字列`""`
-  - レスポンスの`body`フィールドが空文字列`""`
-  - `is_draft: false`, `is_published: false`の状態
-- **対応**: ArticleStatusに空文字列を`Draft`として扱うカスタムデシリアライザーを実装
-- **要調査**: 本文を保存する正しいAPIエンドポイント・パラメータ、HTML形式での送信が必要か
+```yaml
+command: list_articles
+params:
+  username: string      # 必須
+  page: number          # default: 1
+returns:
+  articles:
+    - key: string
+      title: string
+      updated_at: string
+  has_next: bool
+```
 
-#### 記事更新 (`update_article`)
-- エンドポイント: `PUT /api/v1/text_notes/{id}`
-- **問題点**: 422エラー「不正なパラメータが渡されました」
-- **要調査**: 正しいパラメータ形式、必須フィールド、HTML形式での本文送信が必要か
+#### get_article
+記事取得（生HTML）。
 
-#### タグ一覧 (`tag list`)
-- エンドポイント: `GET /api/v2/hashtags?page={page}`
-- **問題点**: レスポンス形式エラー: `invalid type: map, expected a sequence`
-- **要調査**: 実際のレスポンス形式とデータ構造
+```yaml
+command: get_article
+params:
+  key: string           # 必須（URLのn以降）
+returns:
+  html: string          # 生HTML（変換はCLI側）
+  title: string
+  tags: [string]        # ハッシュタグ一覧
+  created_at: string
+  updated_at: string
+```
 
-#### ユーザー情報 (`user`)
-- エンドポイント: `GET /api/v2/creators/{username}`
-- **問題点**: 404エラー「リソースが見つかりません」
-- **テスト値**: `kako-jun`（ハイフン）でテスト、`kako_jun`（アンダースコア）が正しい可能性
-- **要調査**: 正しいエンドポイントパス、パラメータ形式
+#### create_article
+記事作成（常に公開）。
 
-### 実装上の対応
+```yaml
+command: create_article
+params:
+  title: string         # 必須
+  body: string          # プレーンテキスト
+  tags: [string]        # ハッシュタグ（#なし）
+returns:
+  key: string
+  url: string
+```
 
-1. **ArticleStatusデシリアライゼーション**: 空文字列を`Draft`として処理
-2. **メッセージ改善**: 状態に応じたメッセージ表示（下書き保存中/公開中/予約投稿中）
-3. **デバッグログ追加**: 問題調査を容易にするログ出力
+#### update_article
+記事更新。
 
-### 今後の調査が必要な項目
+```yaml
+command: update_article
+params:
+  key: string           # 必須
+  title: string         # optional
+  body: string          # optional
+  tags: [string]        # optional
+returns:
+  success: bool
+  url: string
+```
 
-1. **HTML/Markdown変換**:
-   - ✅ 記事取得: HTML→Markdown変換ライブラリの導入（`html2md`や`html2text`など）
-   - 記事作成・更新: Markdown→HTML変換が必要か検証
-   - Note.com特有のHTML構造（name/id属性、figureタグなど）への対応
+#### delete_article
+記事削除。
 
-2. **記事本文の保存**:
-   - HTML形式での本文送信が必要か
-   - `POST /api/v1/text_notes/draft_save?id={id}` の使用方法
-   - create後に即座にupdateが必要か
-   - 別の本文保存用エンドポイントの存在
+```yaml
+command: delete_article
+params:
+  key: string
+returns:
+  success: bool
+```
 
-3. **APIパラメータ形式**:
-   - 各エンドポイントの正確な必須/オプションパラメータ
-   - リクエストボディの正しいJSON構造
-   - bodyフィールドの正しい形式（HTML/Markdown/プレーンテキスト）
+#### set_debug_mode
+デバッグモード切り替え。ONにすると拡張の操作が可視化される。
 
-4. **レスポンス形式**:
-   - 各エンドポイントの実際のレスポンススキーマ
-   - エラーレスポンスの形式
+```yaml
+command: set_debug_mode
+params:
+  enabled: bool         # true: 操作を表示, false: 非表示
+returns:
+  success: bool
+  debug_mode: bool
+```
 
-5. **認証とセッション**:
-   - セッションクッキーの有効期限
-   - XSRFトークンの取得と更新方法
+#### get_debug_mode
+現在のデバッグモード状態を取得。
+
+```yaml
+command: get_debug_mode
+params: {}
+returns:
+  debug_mode: bool
+```
+
+### エラーコード
+
+| コード | 説明 |
+|--------|------|
+| NOT_LOGGED_IN | Note.comにログインしていません |
+| NOT_FOUND | リソースが見つかりません |
+| PERMISSION_DENIED | 権限がありません |
+| NETWORK_ERROR | 通信エラー |
+| TIMEOUT | タイムアウト |
+| INVALID_PARAMS | パラメータが不正です |
+| EXTENSION_NOT_FOUND | 拡張がインストールされていません |
+| VERSION_MISMATCH | 拡張のバージョンが一致しません |
+| UNKNOWN | 不明なエラー |
+
+## ブラウザ拡張
+
+### 役割
+
+- `~/.noet/request.json` をポーリング監視
+- Note.comへfetch（ブラウザセッション利用）
+- Note.comのエディタをDOM操作（投稿時）
+- 生HTMLをレスポンスファイルに書き込み
+- **変換ロジックは一切持たない**
+
+### 技術スタック
+
+- **Manifest V3** (Chrome拡張)
+- **Service Worker**: バックグラウンドでポーリング
+- **Content Script**: Note.comページのDOM操作
+- **chrome.scripting API**: スクリプト注入
+
+### ファイル構成
+
+```
+extension/
+├── manifest.json       # 拡張マニフェスト
+├── src/
+│   ├── background.js   # Service Worker
+│   │   - ポーリング処理
+│   │   - fetch代行（記事取得等）
+│   │   - Content Scriptへのメッセージ送信
+│   └── content.js      # Content Script
+│       - Note.comエディタのDOM操作
+│       - 記事投稿/更新処理
+└── icons/              # 拡張アイコン
+```
+
+### 投稿フロー（DOM操作）
+
+```
+1. background.js: create_article コマンド受信
+2. background.js: Note.com新規作成ページをタブで開く
+3. background.js: content.js を注入
+4. content.js: タイトル入力欄にテキスト設定
+5. content.js: 本文入力欄にテキスト設定
+6. content.js: 下書き保存/公開ボタンをクリック
+7. content.js: 完了を background.js に通知
+8. background.js: レスポンスファイル書き込み
+```
+
+## CLI (Rust)
+
+### 役割
+
+- ユーザーインターフェース（コマンドライン）
+- リクエストファイル書き込み、レスポンス待機
+- HTML→Markdown変換（記事取得時）
+- Markdown→プレーンテキスト変換（記事投稿時）
+- 設定管理、エディタ連携
+
+### 起動時フロー
+
+```
+1. noet <command> 実行
+2. ping コマンドで拡張存在確認（タイムアウト: 3秒）
+3. 応答なし → 拡張インストールを促す
+4. バージョン不一致 → 更新を促す
+5. OK → 本来のコマンド実行
+```
+
+### 主要モジュール
+
+| モジュール | 責務 |
+|-----------|------|
+| `rpc/client.rs` | 拡張との通信（ファイルI/O） |
+| `rpc/commands.rs` | RPCコマンドの型定義 |
+| `converters/html_to_md.rs` | HTML→Markdown変換 |
+| `converters/md_to_html.rs` | Markdown→HTML変換（必要に応じて） |
+| `commands/*.rs` | 各CLIコマンドの実装 |
+
+## 配布
+
+### GitHub Release
+
+```
+noet-v1.0.0/
+├── noet-linux-x86_64.tar.gz
+├── noet-darwin-x86_64.tar.gz
+├── noet-darwin-aarch64.tar.gz
+├── noet-windows-x86_64.zip
+└── noet-extension.zip          # ブラウザ拡張
+```
+
+### インストール手順
+
+1. Releaseからバイナリとextensionをダウンロード
+2. バイナリをPATHに配置
+3. `noet-extension.zip`を解凍
+4. `chrome://extensions` を開く
+5. 「デベロッパーモード」ON
+6. 「パッケージ化されていない拡張機能を読み込む」
+7. 解凍したフォルダを選択
+8. `noet ping` で動作確認
+
+### CI/CD (GitHub Actions)
+
+```yaml
+# リリース時に自動ビルド
+- Rust: cross-compile for Linux/macOS/Windows
+- Extension: zip packages/extension/ directory
+- Upload all artifacts to Release
+```
 
 ## 設定
 
@@ -247,539 +384,103 @@ pub enum ArticleStatus {
 ### 設定構造
 
 ```toml
-default_status = "draft"
-default_tags = []
-editor = "code -w"          # エディタコマンド（オプション）
-username = "your-username"   # ユーザー名（オプション）
-base_url = "https://note.com"
+editor = "code -w"          # エディタコマンド
+username = "your-username"   # デフォルトユーザー名
+timeout_ms = 30000           # 拡張応答タイムアウト
 ```
 
-### エディタ設定
+### RPC通信ディレクトリ
 
-エディタは以下の優先順位で決定されます：
+- `~/.noet/request.json` - CLIからのリクエスト
+- `~/.noet/response.json` - 拡張からのレスポンス
 
-1. `config.toml`の`editor`フィールド
-2. 環境変数`$VISUAL`
-3. 環境変数`$EDITOR`
-4. プラットフォームデフォルト（vim/notepad/open -e）
+## 開発
 
-**VSCodeの場合**: `editor = "code -w"` (`-w`は編集完了まで待機)
-
-## 認証情報の管理
-
-認証情報は環境変数で管理されます：
-
-- **セッションCookie**: `NOET_SESSION_COOKIE` (必須)
-- **XSRFトークン**: `NOET_XSRF_TOKEN` (オプション)
-
-ユーザーはシェル設定ファイル（`~/.zshrc`、`~/.bashrc`など）に環境変数を設定します。
-
-## プロキシ対応
-
-環境変数で設定：
+### 環境セットアップ
 
 ```bash
-export HTTP_PROXY=http://proxy.example.com:8080
-export HTTPS_PROXY=https://proxy.example.com:8080
-```
-
-`NoteClient`の初期化時に自動的に読み込まれ、reqwestのプロキシ設定に適用されます。
-
-## 新機能の追加
-
-### 新しいコマンドの追加
-
-1. `src/cli.rs`でコマンド定義：
-
-```rust
-#[derive(Subcommand)]
-pub enum Commands {
-    // ... 既存のコマンド
-
-    /// 新しいコマンドの説明
-    MyCommand {
-        /// 引数の説明
-        arg: String,
-    },
-}
-```
-
-2. `src/commands/`に実装を作成：
-
-```rust
-// src/commands/my_command.rs
-use crate::api::NoteClient;
-use crate::auth::Credentials;
-use crate::config::Config;
-use crate::error::Result;
-
-pub async fn my_command(arg: &str) -> Result<()> {
-    let config = Config::load()?;
-    let credentials = Credentials::load()?;
-    let client = NoteClient::new(config, credentials)?;
-
-    // 実装
-    Ok(())
-}
-```
-
-3. `src/commands/mod.rs`に追加：
-
-```rust
-pub mod my_command;
-```
-
-4. `src/main.rs`で配線：
-
-```rust
-Commands::MyCommand { arg } => {
-    commands::my_command::my_command(&arg).await?;
-}
-```
-
-### 新しいAPIエンドポイントの追加
-
-1. `src/api/`の該当モジュールにメソッド追加：
-
-```rust
-// src/api/article.rs
-impl NoteClient {
-    pub async fn my_new_api(&self, param: &str) -> Result<SomeType> {
-        let path = format!("/api/v1/some_endpoint/{}", param);
-        let response = self.get(&path).await?;
-        let data: SomeType = response.json().await?;
-        Ok(data)
-    }
-}
-```
-
-2. 必要に応じて`src/models.rs`にモデル追加：
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SomeType {
-    pub field: String,
-}
-```
-
-### 新しいエラー型の追加
-
-`src/error.rs`の`NoetError`にバリアントを追加：
-
-```rust
-#[derive(Error, Debug)]
-pub enum NoetError {
-    // ... 既存のバリアント
-
-    #[error("My error: {0}")]
-    MyError(String),
-}
-```
-
-## 開発環境のセットアップ
-
-```bash
-# リポジトリをクローン
 git clone https://github.com/kako-jun/noet.git
 cd noet
 
-# 依存関係をインストール（cargo-huskyが自動的にgit hooksをインストール）
+# CLI
+cd apps/cli
 cargo build
+
+# 拡張
+cd apps/extension
+# (plain JS、ビルド不要)
 ```
 
-`cargo build`を実行すると、`cargo-husky`が自動的にGit hooksをインストールします。
+### デバッグ
 
-### コード整形とLint
-
-```bash
-# コードを整形
-cargo fmt
-
-# Lintチェック
-cargo clippy --all-targets --all-features -- -D warnings
-```
-
-### Git Hooks
-
-`cargo-husky`により、コミット時に以下が自動実行されます：
-
-- **pre-commit**: `cargo fmt --check` と `cargo clippy`
-
-これにより、フォーマットされていないコードやlint警告のあるコードはコミットできません。
-
-## テスト戦略
-
-### 手動テスト
-
-実際のNote APIでテスト：
-
-```bash
-# 認証
-cargo run -- auth login
-cargo run -- auth status
-
-# 記事操作
-cargo run -- new "テスト記事"
-cargo run -- publish test-article.md --draft
-cargo run -- list your-username
-
-# タグ操作
-cargo run -- tag list
-cargo run -- tag suggest "rust"
-```
-
-### 統合テスト
-
-実際のAPI呼び出しなしでテストする場合、HTTPクライアントをモック：
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use mockito::{mock, server_url};
-
-    #[tokio::test]
-    async fn test_article_creation() {
-        // APIエンドポイントをモック
-        let _m = mock("POST", "/api/v1/text_notes")
-            .with_status(200)
-            .with_body(r#"{"data": {"id": "123"}}"#)
-            .create();
-
-        // テスト実装
-    }
-}
-```
-
-## HTML/Markdown変換
-
-**実装状況**: ✅ 実装済み（v0.1.3予定、HTML→Markdown変換のみ）
-
-### 最終更新: 2025-11-14
-
-### 実装完了内容
-
-1. **HTML→Markdown変換器** ✅
-   - `src/converters/html_to_md.rs` - 実装完了
-   - `html2md` ライブラリを使用
-   - Note.com特有のHTML構造に対応
-   - テスト5件追加（すべてパス）
-
-2. **get_articleメソッドへの統合** ✅
-   - `src/api/article.rs`の`get_article`メソッドを更新
-   - API取得後、自動的にHTML→Markdown変換を実行
-
-3. **依存関係の追加** ✅
-   - `Cargo.toml`に`html2md = "0.2"`を追加
-
-### 背景
-
-Note.com APIは記事本文を**HTML形式**で返し、おそらくHTML形式で受け取ります：
-- 取得時: HTML → Markdown変換 ✅ 実装済み
-- 作成・更新時: Markdown → HTML変換が必要（要検証）
-
-### Note.com特有のHTML構造
-
-```html
-<!-- 段落 -->
-<p name="uuid" id="uuid">テキスト<br>改行</p>
-
-<!-- 見出し -->
-<h2 name="uuid" id="uuid">見出しテキスト</h2>
-
-<!-- 画像 -->
-<img src="https://assets.st-note.com/img/..." alt="" width="620" height="224">
-
-<!-- 埋め込みコンテンツ（外部リンクなど） -->
-<figure name="uuid" id="uuid" data-src="..." embedded-service="external-article">
-  <a href="..." rel="nofollow noopener" target="_blank">
-    <strong>タイトル</strong>
-    <em>説明</em>
-  </a>
-</figure>
-```
-
-### 推奨ライブラリ
-
-1. **`html2md`** (https://crates.io/crates/html2md)
-   - 純粋なHTML→Markdown変換器
-   - 実績あり、アクティブに開発されている
-
-2. **`htmd`** (https://crates.io/crates/htmd)
-   - 軽量なHTML→Markdown変換
-
-### 実装方針
-
-1. **HTML→Markdown変換器の実装**:
-   - 新モジュール: `src/converters/html_to_md.rs`
-   - Note.com特有の構造（name/id属性、figureタグなど）の処理
-   - 標準的なMarkdownへの変換
-
-2. **Markdown→HTML変換器の実装** (作成・更新用):
-   - 新モジュール: `src/converters/md_to_html.rs`
-   - 既存の`pulldown-cmark`を使用
-   - Note.com要求のHTML形式への変換（name/id属性の生成など）
-
-3. **変換処理の統合**:
-   - `get_article`: レスポンスのHTML bodyをMarkdownに変換
-   - `create_article`/`update_article`: リクエストのMarkdown bodyをHTMLに変換（要検証）
-
-### 既知の問題
-
-**Articleデシリアライゼーションエラー** (要修正):
-- エラー: `missing field 'name'`
-- 状況: APIレスポンスには`name`フィールドが含まれているが、`Article`構造体へのデシリアライズに失敗
-- 試行: `#[serde(default)]`を追加したが未解決
-- 影響: エクスポート機能が動作しない
-- 優先度: 高（次のバージョンで修正が必要）
-
-### 参考にしたOSS
-
-**yamarkz/note2md** (Dart):
-- GitHubリポジトリ: https://github.com/yamarkz/note2md
-- 変換ロジック:
-  - `html/parser.dart`でHTML解析
-  - `data-src`属性で画像URL取得（遅延ロード対応）
-  - `<figure>`タグ内の`<a>`タグをリンクに変換
-  - `<br>`を改行、`<b>`を`**`に置換
-
-## HTTPクライアント設定
-
-`NoteClient`は`reqwest`を使用し、以下の設定：
-- 30秒のタイムアウト
-- Cookieストレージ
-- XSRFトークン挿入
-- プロキシサポート（HTTP_PROXY/HTTPS_PROXY環境変数）
-- カスタムエラーハンドリング
-- **レート制限（500ms固定）** - すべてのHTTPメソッド（GET/POST/PUT/DELETE）で自動適用
-
-## レート制限
-
-**実装状況**: ✅ 実装済み（v0.1.0）
-
-IPバンを防ぐため、`rate_limiter.rs`モジュールで固定レート制限を実装：
-
-### 仕様
-- **固定ウェイト**: 500ms（2リクエスト/秒）
-- **適用範囲**: すべてのAPI呼び出し（GET/POST/PUT/DELETE）
-- **スレッドセーフ**: Mutexによる同期
-- **自動適用**: `NoteClient`に統合、ユーザーの手動制御不要
-
-### 実装
-
-```rust
-// src/rate_limiter.rs
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
-use tokio::time::sleep;
-
-pub struct RateLimiter {
-    last_request: Mutex<Option<Instant>>,
-    delay: Duration,
-}
-
-impl RateLimiter {
-    pub fn new(delay_ms: u64) -> Self {
-        Self {
-            last_request: Mutex::new(None),
-            delay: Duration::from_millis(delay_ms),
-        }
-    }
-
-    pub async fn wait(&self) {
-        // ロック保持中はawaitしない実装
-        // 詳細はsrc/rate_limiter.rsを参照
-    }
-}
-
-impl Default for RateLimiter {
-    fn default() -> Self {
-        Self::new(500) // 500ms delay
-    }
-}
-```
-
-### NoteClientとの統合
-
-```rust
-// src/api/client.rs
-pub struct NoteClient {
-    client: Client,
-    base_url: String,
-    config: Config,
-    credentials: Credentials,
-    rate_limiter: RateLimiter, // 自動レート制限
-}
-
-pub async fn get(&self, path: &str) -> Result<Response> {
-    self.rate_limiter.wait().await; // すべてのリクエスト前に自動待機
-    // ... リクエスト処理
-}
-```
-
-### 連続リクエストの例
-
-```bash
-# エクスポート時: 100記事 = 約50秒（100 × 500ms）
-noet export --all --username myuser
-
-# 一覧取得時: ページごとに500ms待機
-noet list myuser
-```
-
-## 実装済み機能
-
-### v0.1.0で実装済み
-
-- [x] ワークスペース機能（`.noet/`ディレクトリでプロジェクト管理）
-- [x] テンプレート機能（記事テンプレートの作成・管理・使用）
-- [x] エクスポート機能（Note.comから記事をMarkdownでダウンロード）
-  - [x] 上書き警告（既存ファイル保護）
-- [x] TUI差分表示（公開前に変更内容を並列比較）
-- [x] インタラクティブモード（メニュー駆動のUI）
-- [x] エディタ統合（設定可能なエディタ自動起動）
-- [x] **レート制限（500ms固定、IPバン防止）**
-- [x] **完全日本語化UI**
-
-## 今後の改善案
-
-### 高優先度
-
-- [ ] より良いエラーメッセージと提案
-- [ ] 一括操作（一括アップロード/削除）
-
-### 中優先度
-
-- [ ] 画像アップロード対応（要API調査）
-  - Note.comの画像管理仕様が不明確
-  - 画像削除可否が不明（ゴミ画像が溜まるリスク）
-  - 代替案: Web UIでアップロード→URLをMarkdownに貼り付け
-- [ ] 記事バージョン管理/履歴
-
-### 低優先度
-
-- [ ] 記事分析ダッシュボード
-- [ ] 予約投稿
-- [ ] Webhook通知
-- [ ] プラグインシステム
-
-### 不要と判断した機能
-
-- ~~下書き自動保存機能~~ → ローカルファイル管理で十分（ローカル = 下書き）
-- ~~Markdownプレビュー~~ → VSCode等のエディタで可能
-- ~~記事検索機能~~ → エクスポートフォルダを`grep`すればよい
-
-## 既知の問題と制限事項
-
-### API制限
-
-- **非公式API**: 予告なく壊れる可能性
-- **画像アップロードなし**: 現在未実装
-- **有料コンテンツなし**: プレミアムコンテンツAPIは未文書化
-- **レート制限**: 公式な制限は不明
-
-### 実装制限
-
-- **並行アップロードなし**: 順次処理のみ
-- **エラー回復限定**: ネットワークエラーは手動再試行が必要
-- **プログレスバーなし**: 長時間操作用
-- **Markdownパース**: 基本的なfrontmatterのみ
-
-## デバッグ
-
-デバッグログを有効化：
-
+CLI:
 ```bash
 RUST_LOG=debug cargo run -- <command>
 ```
 
-HTTPリクエストのトレースログ：
+拡張:
+- `chrome://extensions` → 拡張の「Service Worker」リンク → DevTools
+
+### テスト
 
 ```bash
-RUST_LOG=noet=trace,reqwest=trace cargo run -- <command>
+# CLI
+cd apps/cli
+cargo test
+
+# 拡張（手動テスト）
+# 1. chrome://extensions から読み込み
+# 2. Note.comにログイン
+# 3. noet ping で疎通確認
 ```
 
-## ビルドとリリース
+## 移行計画
 
-### 開発ビルド
+### Phase 1: モノレポ化
+- [x] 設計決定
+- [x] `apps/cli/` ディレクトリ作成、既存src移動
+- [x] `apps/extension/` ディレクトリ作成
+- [x] ルートのCargo.tomlをworkspace化
+- [x] protocol.yaml作成
 
-```bash
-cargo build
-```
+### Phase 2: 拡張開発
+- [x] manifest.json作成
+- [x] background.js: 雛形作成
+- [x] content.js: 雛形作成
+- [ ] Native Messaging実装
+- [ ] Note.com DOM調査（Playwright）
+- [ ] 各コマンドのDOM操作実装
 
-### リリースビルド
+### Phase 3: CLI書き換え
+- [ ] `src/api/` を `src/rpc/` に置き換え
+- [ ] NoteClient → RpcClient
+- [ ] 認証関連コード削除（不要になる）
 
-```bash
-cargo build --release
-```
+### Phase 4: 統合テスト
+- [ ] 全コマンドの動作確認
+- [ ] エラーハンドリング確認
+- [ ] ドキュメント更新
 
-### クロスコンパイル
+## Note.com DOM構造（調査中）
 
-Linuxターゲット：
+### ログインページ
+- URL: `https://note.com/login`
+- メールアドレス入力: (調査中)
+- パスワード入力: (調査中)
+- ログインボタン: (調査中)
 
-```bash
-cargo build --release --target x86_64-unknown-linux-gnu
-```
+### エディタページ
+- URL: `https://note.com/notes/new`
+- タイトル入力: (調査中)
+- 本文入力: (調査中)
+- 下書き保存ボタン: (調査中)
+- 公開ボタン: (調査中)
 
-macOSターゲット：
-
-```bash
-cargo build --release --target x86_64-apple-darwin
-```
-
-Windowsターゲット：
-
-```bash
-cargo build --release --target x86_64-pc-windows-gnu
-```
-
-## セキュリティ考慮事項
-
-- **Cookie保存**: セッションCookieをログや出力に含めない
-  - 環境変数で管理（シェル設定ファイル）
-  - 設定ファイルのパーミッションを適切に設定（`chmod 600`推奨）
-  - Gitなどでコミットしないように`.gitignore`に追加
-- **XSRF保護**: 可能な場合は常にXSRFトークンを含める
-- **入力検証**: API呼び出し前にユーザー入力をサニタイズ
-- **レート制限**: 不正利用とIPバンを防ぐ
-- **エラーメッセージ**: 機密情報を漏らさない
-
-## コントリビューションガイドライン
-
-1. リポジトリをフォーク
-2. フィーチャーブランチを作成
-3. 変更を加える
-4. 該当する場合はテストを追加
-5. ドキュメントを更新
-6. プルリクエストを提出
-
-### コードスタイル
-
-- Rustの規約に従う（rustfmt）
-- lintingにclippyを使用
-- 複雑なロジックにはコメントを追加
-- 説明的なコミットメッセージを書く
-
-### コミットメッセージ形式
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-タイプ: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+### 記事ページ
+- URL: `https://note.com/{username}/n/{key}`
+- 本文HTML: (調査中)
+- メタデータ: `<script id="__NEXT_DATA__">` 内のJSON
 
 ## ライセンス
 
 MIT License - LICENSEファイル参照
-
-## 参考資料
-
-- [Note.com](https://note.com)
-- [Rust Book](https://doc.rust-lang.org/book/)
-- [Clap Documentation](https://docs.rs/clap/)
-- [Reqwest Documentation](https://docs.rs/reqwest/)
-- [Tokio Documentation](https://docs.rs/tokio/)

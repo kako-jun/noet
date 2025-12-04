@@ -5,7 +5,7 @@ use crate::models::User;
 impl NoteClient {
     /// Get user details
     pub async fn get_user(&self, username: &str) -> Result<User> {
-        let path = format!("/api/v2/creators/{}", username);
+        let path = format!("/api/v2/creators/{username}");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
@@ -15,7 +15,7 @@ impl NoteClient {
         } else {
             Err(crate::error::NoetError::ApiError {
                 status: 404,
-                message: format!("ユーザー '{}' が見つかりません", username),
+                message: format!("ユーザー '{username}' が見つかりません"),
             })
         }
     }
@@ -23,7 +23,7 @@ impl NoteClient {
     /// Get user's followings
     #[allow(dead_code)]
     pub async fn get_followings(&self, username: &str) -> Result<Vec<User>> {
-        let path = format!("/api/v1/followings/{}/list", username);
+        let path = format!("/api/v1/followings/{username}/list");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
@@ -38,7 +38,7 @@ impl NoteClient {
     /// Get user's followers
     #[allow(dead_code)]
     pub async fn get_followers(&self, username: &str) -> Result<Vec<User>> {
-        let path = format!("/api/v1/followers/{}/list", username);
+        let path = format!("/api/v1/followers/{username}/list");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
@@ -53,7 +53,7 @@ impl NoteClient {
     /// Follow a user
     #[allow(dead_code)]
     pub async fn follow_user(&self, user_key: &str) -> Result<()> {
-        let path = format!("/api/v3/users/{}/following", user_key);
+        let path = format!("/api/v3/users/{user_key}/following");
         let body = serde_json::json!({});
         self.post(&path, body).await?;
         Ok(())

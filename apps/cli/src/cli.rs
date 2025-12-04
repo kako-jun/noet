@@ -6,6 +6,10 @@ use std::path::PathBuf;
 #[command(about = "A CLI tool for Note blog service", long_about = None)]
 #[command(version)]
 pub struct Cli {
+    /// Run as Native Messaging host for browser extension
+    #[arg(long, hide = true)]
+    pub native_messaging: bool,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }

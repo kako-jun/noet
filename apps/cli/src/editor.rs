@@ -81,13 +81,12 @@ pub fn open_in_editor<P: AsRef<Path>>(filepath: P) -> Result<()> {
     command.arg(filepath.as_ref());
 
     let status = command.status().map_err(|e| {
-        NoetError::ConfigError(format!("エディタ '{}' の起動に失敗しました: {}", editor, e))
+        NoetError::ConfigError(format!("エディタ '{editor}' の起動に失敗しました: {e}"))
     })?;
 
     if !status.success() {
         return Err(NoetError::ConfigError(format!(
-            "エディタが異常終了しました: {}",
-            status
+            "エディタが異常終了しました: {status}"
         )));
     }
 

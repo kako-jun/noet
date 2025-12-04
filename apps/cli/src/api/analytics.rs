@@ -7,10 +7,10 @@ impl NoteClient {
     /// Get page view statistics
     #[allow(dead_code)]
     pub async fn get_stats(&self, filter: Option<&str>, page: u32) -> Result<Vec<Stats>> {
-        let mut path = format!("/api/v1/stats/pv?page={}", page);
+        let mut path = format!("/api/v1/stats/pv?page={page}");
 
         if let Some(f) = filter {
-            path = format!("{}&filter={}", path, f);
+            path = format!("{path}&filter={f}");
         }
 
         let response = self.get(&path).await?;

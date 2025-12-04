@@ -60,13 +60,12 @@ pub fn add_template(name: &str) -> Result<()> {
     let template_dir = get_template_dir()?;
     fs::create_dir_all(&template_dir)?;
 
-    let template_path = template_dir.join(format!("{}.md", name));
+    let template_path = template_dir.join(format!("{name}.md"));
 
     if template_path.exists() {
         let overwrite = Confirm::new()
             .with_prompt(format!(
-                "テンプレート '{}' は既に存在します。上書きしますか？",
-                name
+                "テンプレート '{name}' は既に存在します。上書きしますか？"
             ))
             .interact()?;
 
@@ -111,16 +110,15 @@ pub fn show_template(name: &str) -> Result<()> {
 
     if !template_path.exists() {
         return Err(NoetError::FileNotFound(format!(
-            "テンプレート '{}' が見つかりません",
-            name
+            "テンプレート '{name}' が見つかりません"
         )));
     }
 
     let content = fs::read_to_string(&template_path)?;
 
-    println!("{}", format!("テンプレート: {}", name).bold());
+    println!("{}", format!("テンプレート: {name}").bold());
     println!("{}", "─".repeat(50).dimmed());
-    println!("{}", content);
+    println!("{content}");
     println!("{}", "─".repeat(50).dimmed());
 
     Ok(())
@@ -131,13 +129,12 @@ pub fn remove_template(name: &str) -> Result<()> {
 
     if !template_path.exists() {
         return Err(NoetError::FileNotFound(format!(
-            "テンプレート '{}' が見つかりません",
-            name
+            "テンプレート '{name}' が見つかりません"
         )));
     }
 
     let confirm = Confirm::new()
-        .with_prompt(format!("テンプレート '{}' を削除しますか？", name))
+        .with_prompt(format!("テンプレート '{name}' を削除しますか？"))
         .interact()?;
 
     if !confirm {
@@ -161,8 +158,7 @@ pub fn load_template(name: &str, title: &str) -> Result<String> {
 
     if !template_path.exists() {
         return Err(NoetError::FileNotFound(format!(
-            "Template '{}' not found. Use 'noet template list' to see available templates.",
-            name
+            "Template '{name}' not found. Use 'noet template list' to see available templates."
         )));
     }
 
@@ -192,7 +188,7 @@ fn get_template_dir() -> Result<PathBuf> {
 
 fn get_template_path(name: &str) -> Result<PathBuf> {
     let template_dir = get_template_dir()?;
-    Ok(template_dir.join(format!("{}.md", name)))
+    Ok(template_dir.join(format!("{name}.md")))
 }
 
 #[cfg(test)]

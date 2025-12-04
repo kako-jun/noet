@@ -1,0 +1,9 @@
+{
+  "name": "com.noet.host",
+  "description": "noet CLI Native Messaging Host",
+  "path": "/usr/local/bin/noet",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://EXTENSION_ID_HERE/"
+  ]
+}

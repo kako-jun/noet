@@ -67,7 +67,7 @@ impl Config {
         }
 
         let content = fs::read_to_string(&config_path).map_err(|e| {
-            NoetError::ConfigError(format!("設定ファイルの読み込みに失敗しました: {}", e))
+            NoetError::ConfigError(format!("設定ファイルの読み込みに失敗しました: {e}"))
         })?;
 
         let config: Config = toml::from_str(&content)?;
@@ -86,7 +86,7 @@ impl Config {
         }
 
         let content = fs::read_to_string(&workspace_config_path).map_err(|e| {
-            NoetError::ConfigError(format!("ワークスペース設定の読み込みに失敗しました: {}", e))
+            NoetError::ConfigError(format!("ワークスペース設定の読み込みに失敗しました: {e}"))
         })?;
 
         let config: Config = toml::from_str(&content)?;
@@ -113,16 +113,16 @@ impl Config {
 
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
-                NoetError::ConfigError(format!("設定ディレクトリの作成に失敗しました: {}", e))
+                NoetError::ConfigError(format!("設定ディレクトリの作成に失敗しました: {e}"))
             })?;
         }
 
         let content = toml::to_string_pretty(self).map_err(|e| {
-            NoetError::ConfigError(format!("設定のシリアライズに失敗しました: {}", e))
+            NoetError::ConfigError(format!("設定のシリアライズに失敗しました: {e}"))
         })?;
 
         fs::write(&config_path, content).map_err(|e| {
-            NoetError::ConfigError(format!("設定ファイルの書き込みに失敗しました: {}", e))
+            NoetError::ConfigError(format!("設定ファイルの書き込みに失敗しました: {e}"))
         })?;
 
         Ok(())

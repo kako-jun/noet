@@ -6,14 +6,14 @@ use serde_json::json;
 impl NoteClient {
     /// Like an article
     pub async fn like_article(&self, note_key: &str) -> Result<()> {
-        let path = format!("/api/v3/notes/{}/likes", note_key);
+        let path = format!("/api/v3/notes/{note_key}/likes");
         self.post(&path, json!({})).await?;
         Ok(())
     }
 
     /// Unlike an article
     pub async fn unlike_article(&self, note_key: &str) -> Result<()> {
-        let path = format!("/api/v3/notes/{}/likes", note_key);
+        let path = format!("/api/v3/notes/{note_key}/likes");
         self.delete(&path).await?;
         Ok(())
     }
@@ -21,7 +21,7 @@ impl NoteClient {
     /// Get likes for an article
     #[allow(dead_code)]
     pub async fn get_likes(&self, note_key: &str) -> Result<Vec<Like>> {
-        let path = format!("/api/v3/notes/{}/likes", note_key);
+        let path = format!("/api/v3/notes/{note_key}/likes");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
@@ -35,7 +35,7 @@ impl NoteClient {
 
     /// Get comments for an article
     pub async fn get_comments(&self, note_id: &str) -> Result<Vec<Comment>> {
-        let path = format!("/api/v1/note/{}/comments", note_id);
+        let path = format!("/api/v1/note/{note_id}/comments");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
@@ -50,7 +50,7 @@ impl NoteClient {
     /// Post a comment on an article
     #[allow(dead_code)]
     pub async fn post_comment(&self, note_id: &str, comment: &str) -> Result<Comment> {
-        let path = format!("/api/v1/note/{}/comments", note_id);
+        let path = format!("/api/v1/note/{note_id}/comments");
         let body = json!({
             "comment": comment,
             "acknowledgement": true,

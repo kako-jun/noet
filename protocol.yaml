@@ -1,0 +1,364 @@
+# noet RPC Protocol Specification
+# Version: 1.0.0
+#
+# CLI と ブラウザ拡張間の通信プロトコル定義
+# 両方のパッケージがこのファイルを参照する
+
+# ============================================================
+# 通信方式
+# ============================================================
+
+communication:
+  method: file_based_rpc
+  request_file: ~/.noet/request.json
+  response_file: ~/.noet/response.json
+  polling_interval_ms: 100  # 拡張のポーリング間隔
+  default_timeout_ms: 30000 # CLIのデフォルトタイムアウト
+
+# ============================================================
+# リクエスト形式
+# ============================================================
+
+request:
+  type: object
+  required:
+    - id
+    - command
+    - timestamp
+  properties:
+    id:
+      type: string
+      format: uuid-v4
+      description: リクエスト識別子
+    command:
+      type: string
+      description: コマンド名
+    params:
+      type: object
+      description: コマンド固有パラメータ
+    timestamp:
+      type: integer
+      description: UNIXタイムスタンプ（ミリ秒）
+
+# ============================================================
+# レスポンス形式
+# ============================================================
+
+response:
+  type: object
+  required:
+    - id
+    - status
+    - timestamp
+  properties:
+    id:
+      type: string
+      format: uuid-v4
+      description: 対応するリクエストID
+    status:
+      type: string
+      enum: [success, error]
+    data:
+      type: object
+      description: 成功時のデータ（コマンドにより異なる）
+    error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: エラーコード
+        message:
+          type: string
+          description: エラーメッセージ
+    timestamp:
+      type: integer
+      description: UNIXタイムスタンプ（ミリ秒）
+
+# ============================================================
+# エラーコード
+# ============================================================
+
+error_codes:
+  NOT_LOGGED_IN:
+    message: Note.comにログインしていません
+    description: ブラウザでNote.comにログインしていない状態
+
+  NOT_FOUND:
+    message: リソースが見つかりません
+    description: 指定された記事やユーザーが存在しない
+
+  PERMISSION_DENIED:
+    message: 権限がありません
+    description: 他ユーザーの下書きへのアクセスなど
+
+  NETWORK_ERROR:
+    message: 通信エラー
+    description: Note.comへの接続に失敗
+
+  TIMEOUT:
+    message: タイムアウト
+    description: 操作が時間内に完了しなかった
+
+  INVALID_PARAMS:
+    message: パラメータが不正です
+    description: 必須パラメータの欠落や不正な値
+
+  EXTENSION_NOT_FOUND:
+    message: 拡張がインストールされていません
+    description: CLI起動時に拡張が応答しない
+
+  VERSION_MISMATCH:
+    message: 拡張のバージョンが一致しません
+    description: CLIと拡張のバージョンが異なる
+
+  DOM_ERROR:
+    message: ページ操作に失敗しました
+    description: Note.comのDOM構造変更などによる操作失敗
+
+  UNKNOWN:
+    message: 不明なエラー
+    description: 予期しないエラー
+
+# ============================================================
+# コマンド定義
+# ============================================================
+
+commands:
+  # ----------------------------------------------------------
+  # ping - 拡張の存在確認とバージョンチェック
+  # ----------------------------------------------------------
+  ping:
+    description: 拡張の存在確認とバージョンチェック
+    params: {}
+    returns:
+      version:
+        type: string
+        description: 拡張のバージョン（例: "1.0.0"）
+      extension_id:
+        type: string
+        description: Chrome拡張ID
+
+  # ----------------------------------------------------------
+  # check_auth - ログイン状態の確認
+  # ----------------------------------------------------------
+  check_auth:
+    description: Note.comへのログイン状態を確認
+    params: {}
+    returns:
+      logged_in:
+        type: boolean
+        description: ログイン済みならtrue
+      username:
+        type: string
+        nullable: true
+        description: ログイン中のユーザー名（未ログインならnull）
+
+  # ----------------------------------------------------------
+  # list_articles - 記事一覧取得
+  # ----------------------------------------------------------
+  list_articles:
+    description: ユーザーの公開記事一覧を取得
+    params:
+      username:
+        type: string
+        required: true
+        description: 対象ユーザー名
+      page:
+        type: integer
+        default: 1
+        description: ページ番号
+    returns:
+      articles:
+        type: array
+        items:
+          type: object
+          properties:
+            key:
+              type: string
+              description: 記事キー（URL用）
+            title:
+              type: string
+              description: 記事タイトル
+            updated_at:
+              type: string
+              format: iso8601
+      has_next:
+        type: boolean
+        description: 次のページがあるか
+
+  # ----------------------------------------------------------
+  # get_article - 記事取得
+  # ----------------------------------------------------------
+  get_article:
+    description: 記事の内容を取得（生HTML）
+    params:
+      key:
+        type: string
+        required: true
+        description: 記事キー（URLの /n/ 以降）
+    returns:
+      html:
+        type: string
+        description: 記事本文の生HTML（変換はCLI側で行う）
+      title:
+        type: string
+        description: 記事タイトル
+      tags:
+        type: array
+        items:
+          type: string
+        description: 記事に付けられたハッシュタグ
+      created_at:
+        type: string
+        format: iso8601
+      updated_at:
+        type: string
+        format: iso8601
+
+  # ----------------------------------------------------------
+  # create_article - 記事作成（公開）
+  # ----------------------------------------------------------
+  create_article:
+    description: 新規記事を作成して公開
+    params:
+      title:
+        type: string
+        required: true
+        description: 記事タイトル
+      body:
+        type: string
+        required: true
+        description: 記事本文（プレーンテキスト、改行は\n）
+      tags:
+        type: array
+        items:
+          type: string
+        required: false
+        default: []
+        description: ハッシュタグ（#なしで指定、例: ["rust", "cli"]）
+    returns:
+      key:
+        type: string
+        description: 作成された記事のキー
+      url:
+        type: string
+        description: 記事のURL
+
+  # ----------------------------------------------------------
+  # update_article - 記事更新
+  # ----------------------------------------------------------
+  update_article:
+    description: 既存記事を更新
+    params:
+      key:
+        type: string
+        required: true
+        description: 更新対象の記事キー
+      title:
+        type: string
+        required: false
+        description: 新しいタイトル（省略時は変更なし）
+      body:
+        type: string
+        required: false
+        description: 新しい本文（省略時は変更なし）
+      tags:
+        type: array
+        items:
+          type: string
+        required: false
+        description: 新しいハッシュタグ（省略時は変更なし）
+    returns:
+      success:
+        type: boolean
+      url:
+        type: string
+        description: 更新後の記事URL
+
+  # ----------------------------------------------------------
+  # delete_article - 記事削除
+  # ----------------------------------------------------------
+  delete_article:
+    description: 記事を削除
+    params:
+      key:
+        type: string
+        required: true
+        description: 削除対象の記事キー
+    returns:
+      success:
+        type: boolean
+
+  # ----------------------------------------------------------
+  # set_debug_mode - デバッグモード切り替え
+  # ----------------------------------------------------------
+  set_debug_mode:
+    description: |
+      デバッグモードの切り替え。
+      ONにすると、拡張がNote.comを操作する様子がタブ/ウィンドウで表示される。
+      OFFにすると、バックグラウンドで操作され、完了後すぐにタブが閉じられる。
+    params:
+      enabled:
+        type: boolean
+        required: true
+        description: trueで操作を可視化、falseで非表示
+    returns:
+      success:
+        type: boolean
+      debug_mode:
+        type: boolean
+        description: 設定後のデバッグモード状態
+
+  # ----------------------------------------------------------
+  # get_debug_mode - デバッグモード状態取得
+  # ----------------------------------------------------------
+  get_debug_mode:
+    description: 現在のデバッグモード状態を取得
+    params: {}
+    returns:
+      debug_mode:
+        type: boolean
+
+# ============================================================
+# 拡張の実装ガイド
+# ============================================================
+
+extension_implementation:
+  polling:
+    description: |
+      1. setIntervalで100msごとにrequest.jsonを監視
+      2. ファイルが存在し、未処理のリクエストがあれば処理
+      3. 処理後、response.jsonに結果を書き込み
+      4. request.jsonを削除（または空にする）
+
+  fetch_operations:
+    description: |
+      list_articles, get_article, check_auth はfetch()で実装可能。
+      ブラウザのセッションCookieが自動的に付与される。
+
+  dom_operations:
+    description: |
+      create_article, update_article, delete_article はDOM操作が必要。
+      1. chrome.tabs.create() でNote.comのエディタページを開く
+      2. chrome.scripting.executeScript() でcontent.jsを注入
+      3. content.jsがDOM操作を行い、結果をbackground.jsに返す
+
+# ============================================================
+# CLI の実装ガイド
+# ============================================================
+
+cli_implementation:
+  startup:
+    description: |
+      1. コマンド実行前に必ずpingを送信
+      2. 3秒以内に応答がなければEXTENSION_NOT_FOUNDエラー
+      3. バージョンが一致しなければVERSION_MISMATCHエラー
+      4. OKなら本来のコマンドを実行
+
+  request_flow:
+    description: |
+      1. UUIDを生成
+      2. request.jsonにリクエストを書き込み
+      3. response.jsonをポーリング（100msごと）
+      4. 自分のIDと一致するレスポンスが来たら処理
+      5. タイムアウト（デフォルト30秒）でTIMEOUTエラー

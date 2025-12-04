@@ -142,7 +142,7 @@ async fn create_new_article() -> Result<()> {
         .collect::<String>();
 
     let current_dir = env::current_dir()?;
-    let filepath = current_dir.join(format!("{}.md", filename));
+    let filepath = current_dir.join(format!("{filename}.md"));
 
     // Open in editor
     println!("{}", "エディタを起動します...".cyan());
@@ -257,7 +257,7 @@ async fn list_my_articles() -> Result<()> {
     // Get username from credentials
     let username = client.get_username()?;
 
-    println!("{}", format!("{}の記事を取得中...", username).cyan());
+    println!("{}", format!("{username}の記事を取得中...").cyan());
 
     article::list_articles(&username, 1).await?;
 

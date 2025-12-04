@@ -7,7 +7,7 @@ impl NoteClient {
     /// Get magazine details
     #[allow(dead_code)]
     pub async fn get_magazine(&self, magazine_key: &str) -> Result<Magazine> {
-        let path = format!("/api/v1/magazines/{}", magazine_key);
+        let path = format!("/api/v1/magazines/{magazine_key}");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
@@ -17,7 +17,7 @@ impl NoteClient {
         } else {
             Err(crate::error::NoetError::ApiError {
                 status: 404,
-                message: format!("マガジン '{}' が見つかりません", magazine_key),
+                message: format!("マガジン '{magazine_key}' が見つかりません"),
             })
         }
     }
@@ -29,7 +29,7 @@ impl NoteClient {
         note_id: &str,
         note_key: &str,
     ) -> Result<()> {
-        let path = format!("/api/v1/our/magazines/{}/notes", magazine_key);
+        let path = format!("/api/v1/our/magazines/{magazine_key}/notes");
         let body = json!({
             "note_id": note_id,
             "note_key": note_key,
@@ -41,7 +41,7 @@ impl NoteClient {
 
     /// Remove article from magazine
     pub async fn remove_from_magazine(&self, magazine_key: &str, note_key: &str) -> Result<()> {
-        let path = format!("/api/v1/our/magazines/{}/notes/{}", magazine_key, note_key);
+        let path = format!("/api/v1/our/magazines/{magazine_key}/notes/{note_key}");
         self.delete(&path).await?;
         Ok(())
     }

@@ -9,7 +9,7 @@ use serde_json::json;
 fn extract_article_from_response(json: serde_json::Value) -> Result<Article> {
     if let Some(data) = json.get("data") {
         let article: Article = serde_json::from_value(data.clone()).map_err(|e| {
-            eprintln!("JSONパースエラー: {}", e);
+            eprintln!("JSONパースエラー: {e}");
             eprintln!(
                 "レスポンス: {}",
                 serde_json::to_string_pretty(&json).unwrap_or_default()
@@ -85,7 +85,7 @@ impl NoteClient {
     ) -> Result<Article> {
         let mut path = "/api/v1/text_notes/draft_save".to_string();
         if let Some(article_id) = id {
-            path = format!("{}?id={}", path, article_id);
+            path = format!("{path}?id={article_id}");
         }
 
         let request = json!({
@@ -114,7 +114,7 @@ impl NoteClient {
             hashtag_notes: hashtags,
         };
 
-        let path = format!("/api/v1/text_notes/{}", article_id);
+        let path = format!("/api/v1/text_notes/{article_id}");
         let response = self.put(&path, request).await?;
         let json: serde_json::Value = response.json().await?;
         extract_article_from_response(json)
@@ -122,14 +122,14 @@ impl NoteClient {
 
     /// Delete an article
     pub async fn delete_article(&self, article_id: &str) -> Result<()> {
-        let path = format!("/api/v1/text_notes/{}", article_id);
+        let path = format!("/api/v1/text_notes/{article_id}");
         self.delete(&path).await?;
         Ok(())
     }
 
     /// Get article details
     pub async fn get_article(&self, article_key: &str) -> Result<Article> {
-        let path = format!("/api/v3/notes/{}", article_key);
+        let path = format!("/api/v3/notes/{article_key}");
         let response = self.get(&path).await?;
         let json: serde_json::Value = response.json().await?;
 
@@ -146,10 +146,7 @@ impl NoteClient {
 
     /// List articles for a user
     pub async fn list_articles(&self, username: &str, page: u32) -> Result<Vec<Article>> {
-        let path = format!(
-            "/api/v2/creators/{}/contents?kind=note&page={}",
-            username, page
-        );
+        let path = format!("/api/v2/creators/{username}/contents?kind=note&page={page}");
         let response = self.get(&path).await?;
         let list_response: ArticleListResponse = response.json().await?;
 

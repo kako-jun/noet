@@ -7,6 +7,7 @@ mod converters;
 mod editor;
 mod error;
 mod models;
+mod native_messaging;
 mod rate_limiter;
 mod tui_diff;
 mod workspace;
@@ -27,6 +28,11 @@ async fn main() {
 
 async fn run() -> error::Result<()> {
     let cli = Cli::parse();
+
+    // Run as Native Messaging host if flag is set
+    if cli.native_messaging {
+        return native_messaging::run().await;
+    }
 
     // If no command provided, run interactive mode
     let command = match cli.command {

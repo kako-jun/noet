@@ -30,7 +30,7 @@ pub async fn export_articles(
         export_all_articles(&client, &username, &output_dir, page).await?;
     } else if let Some(key) = article_key {
         // Export single article
-        let output_file = output.unwrap_or_else(|| PathBuf::from(format!("{}.md", key)));
+        let output_file = output.unwrap_or_else(|| PathBuf::from(format!("{key}.md")));
 
         export_single_article(&client, &key, &output_file).await?;
     } else {
@@ -49,7 +49,7 @@ async fn export_single_article(
 ) -> Result<()> {
     println!(
         "{}",
-        format!("記事 '{}' をエクスポート中...", article_key).cyan()
+        format!("記事 '{article_key}' をエクスポート中...").cyan()
     );
 
     let article = client.get_article(article_key).await?;
@@ -80,7 +80,7 @@ async fn export_all_articles(
 ) -> Result<()> {
     println!(
         "{}",
-        format!("ユーザー '{}' のすべての記事をエクスポート中...", username).cyan()
+        format!("ユーザー '{username}' のすべての記事をエクスポート中...").cyan()
     );
 
     // Check if output directory exists and has files
@@ -111,7 +111,7 @@ async fn export_all_articles(
     loop {
         println!(
             "\n{}",
-            format!("ページ {} を取得中...", current_page).dimmed()
+            format!("ページ {current_page} を取得中...").dimmed()
         );
 
         let articles = client.list_articles(username, current_page).await?;
@@ -128,7 +128,7 @@ async fn export_all_articles(
 
             // Sanitize filename
             let filename = sanitize_filename(&article.name);
-            let output_file = output_dir.join(format!("{}.md", filename));
+            let output_file = output_dir.join(format!("{filename}.md"));
 
             let markdown = generate_markdown(&article);
             fs::write(&output_file, markdown)?;
@@ -167,7 +167,7 @@ fn generate_markdown(article: &crate::models::Article) -> String {
             ArticleStatus::Draft => "draft",
             ArticleStatus::Scheduled => "scheduled",
         };
-        frontmatter.push_str(&format!("status: {}\n", status_str));
+        frontmatter.push_str(&format!("status: {status_str}\n"));
     }
 
     if let Some(ref hashtags) = article.hashtag_notes {
@@ -178,11 +178,11 @@ fn generate_markdown(article: &crate::models::Article) -> String {
     }
 
     if let Some(ref id) = article.id {
-        frontmatter.push_str(&format!("article_id: {}\n", id));
+        frontmatter.push_str(&format!("article_id: {id}\n"));
     }
 
     if let Some(ref key) = article.key {
-        frontmatter.push_str(&format!("article_key: {}\n", key));
+        frontmatter.push_str(&format!("article_key: {key}\n"));
     }
 
     if let Some(ref published_at) = article.publish_at {
@@ -190,15 +190,15 @@ fn generate_markdown(article: &crate::models::Article) -> String {
     }
 
     if let Some(like_count) = article.like_count {
-        frontmatter.push_str(&format!("like_count: {}\n", like_count));
+        frontmatter.push_str(&format!("like_count: {like_count}\n"));
     }
 
     if let Some(comment_count) = article.comment_count {
-        frontmatter.push_str(&format!("comment_count: {}\n", comment_count));
+        frontmatter.push_str(&format!("comment_count: {comment_count}\n"));
     }
 
     if let Some(read_count) = article.read_count {
-        frontmatter.push_str(&format!("read_count: {}\n", read_count));
+        frontmatter.push_str(&format!("read_count: {read_count}\n"));
     }
 
     frontmatter.push_str("---\n\n");

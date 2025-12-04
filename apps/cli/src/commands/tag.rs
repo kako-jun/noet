@@ -37,7 +37,7 @@ pub async fn suggest_tags(keyword: &str) -> Result<()> {
 
     println!(
         "{}",
-        format!("'{}' に一致するタグを検索中...", keyword).cyan()
+        format!("'{keyword}' に一致するタグを検索中...").cyan()
     );
 
     let hashtags = client.search_hashtags(keyword).await?;

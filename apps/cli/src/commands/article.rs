@@ -99,7 +99,7 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
 
     // Create file in current directory
     let current_dir = env::current_dir()?;
-    let filepath = current_dir.join(format!("{}.md", filename));
+    let filepath = current_dir.join(format!("{filename}.md"));
 
     if filepath.exists() {
         let overwrite = Confirm::new()
@@ -119,7 +119,7 @@ pub async fn new_article(title: Option<String>, template_name: Option<String>) -
         // Use template
         println!(
             "{}",
-            format!("テンプレート '{}' を使用します...", template).cyan()
+            format!("テンプレート '{template}' を使用します...").cyan()
         );
         template::load_template(template, &article_title)?
     } else {
@@ -159,12 +159,12 @@ pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Re
     // Show diff for updates (unless --force is used)
     if is_update && !force {
         let key = article_key.unwrap();
-        println!("{}", format!("リモート記事 '{}' を取得中...", key).cyan());
+        println!("{}", format!("リモート記事 '{key}' を取得中...").cyan());
 
         match client.get_article(key).await {
             Ok(remote_article) => {
                 // Show TUI diff
-                let tui_title = format!("公開: {} (記事キー: {})", title, key);
+                let tui_title = format!("公開: {title} (記事キー: {key})");
                 let should_publish =
                     crate::tui_diff::show_diff_tui(&tui_title, &remote_article.body, &body)?;
 
@@ -192,12 +192,12 @@ pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Re
     };
     println!("{}", action_msg.cyan());
 
-    log::debug!("記事タイトル: {}", title);
+    log::debug!("記事タイトル: {title}");
     log::debug!(
         "記事本文 (最初の100文字): {}",
         &body.chars().take(100).collect::<String>()
     );
-    log::debug!("ステータス: {:?}", status);
+    log::debug!("ステータス: {status:?}");
 
     let article = client
         .create_article(title.clone(), body.clone(), status.clone(), tags.clone())
@@ -205,7 +205,7 @@ pub async fn publish_article(filepath: &Path, as_draft: bool, force: bool) -> Re
 
     // Note.comのcreate_articleは本文を保存しないので、update_articleで本文を保存する
     if let Some(ref id) = article.id {
-        log::debug!("記事作成後、本文を更新します (ID: {})", id);
+        log::debug!("記事作成後、本文を更新します (ID: {id})");
         client
             .update_article(id, None, Some(body), status.clone(), tags)
             .await?;
@@ -246,12 +246,12 @@ pub async fn show_diff(filepath: &Path) -> Result<()> {
 
     println!(
         "{}",
-        format!("Fetching remote article '{}'...", article_key).cyan()
+        format!("Fetching remote article '{article_key}'...").cyan()
     );
 
     let remote_article = client.get_article(article_key).await?;
 
-    let tui_title = format!("Diff: {} (Article Key: {})", title, article_key);
+    let tui_title = format!("Diff: {title} (Article Key: {article_key})");
     crate::tui_diff::show_diff_tui(&tui_title, &remote_article.body, &body)?;
 
     Ok(())
@@ -281,8 +281,7 @@ pub async fn delete_article(article_id: &str, force: bool) -> Result<()> {
     if !force {
         let confirm = Confirm::new()
             .with_prompt(format!(
-                "記事 '{}' を削除しますか？この操作は取り消せません。",
-                article_id
+                "記事 '{article_id}' を削除しますか？この操作は取り消せません。"
             ))
             .interact()?;
 
