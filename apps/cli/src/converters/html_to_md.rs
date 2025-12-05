@@ -8,6 +8,7 @@ use crate::error::Result;
 /// - Paragraphs contain `name` and `id` attributes (UUIDs)
 ///
 /// This function converts the HTML to standard Markdown format.
+#[allow(dead_code)]
 pub fn convert_html_to_markdown(html: &str) -> Result<String> {
     // Use html2md for basic conversion
     let markdown = html2md::parse_html(html);
@@ -19,6 +20,7 @@ pub fn convert_html_to_markdown(html: &str) -> Result<String> {
 }
 
 /// Post-process markdown to clean up Note.com specific artifacts
+#[allow(dead_code)]
 fn post_process_markdown(markdown: &str) -> String {
     let mut result = markdown.to_string();
 

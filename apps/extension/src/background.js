@@ -3,7 +3,7 @@
 // Communicates with CLI via Native Messaging or WebSocket
 // Executes Note.com operations using DOM scraping (no API)
 
-const VERSION = "0.1.6";
+const VERSION = "0.1.7";
 const NATIVE_HOST_NAME = "com.noet.host";
 const WEBSOCKET_URL = "ws://127.0.0.1:9876";
 
@@ -742,13 +742,24 @@ function fillArticleForm(title, body) {
 
     bodyEditor.focus();
 
-    // For ProseMirror, we need to set innerHTML and dispatch input event
-    // Convert markdown-style line breaks to HTML paragraphs
-    const htmlBody = body.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('');
-    bodyEditor.innerHTML = htmlBody;
+    // ProseMirror recognizes Markdown when pasted
+    // Simulate paste event with Markdown content
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', body);
 
-    bodyEditor.dispatchEvent(new Event('input', { bubbles: true }));
-    bodyEditor.dispatchEvent(new Event('change', { bubbles: true }));
+    const pasteEvent = new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: clipboardData
+    });
+
+    bodyEditor.dispatchEvent(pasteEvent);
+
+    // Fallback: if paste didn't work, try direct input
+    if (bodyEditor.textContent.trim() === '') {
+      bodyEditor.textContent = body;
+      bodyEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 
     return { success: true };
   } catch (e) {

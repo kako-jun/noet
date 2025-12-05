@@ -1,10 +1,17 @@
-use crate::config::Config;
 use crate::error::{NoetError, Result};
 use crate::workspace;
 use colored::Colorize;
 use dialoguer::{Confirm, Editor};
 use std::fs;
 use std::path::PathBuf;
+
+/// Get the config directory for noet
+fn get_config_dir() -> Result<PathBuf> {
+    let config_dir = dirs::config_dir()
+        .ok_or_else(|| NoetError::ConfigError("設定ディレクトリが見つかりません".to_string()))?
+        .join("noet");
+    Ok(config_dir)
+}
 
 /// Helper function to get markdown filenames from a directory
 fn list_markdown_files_in_dir(dir: &PathBuf) -> Result<Vec<String>> {
@@ -153,6 +160,7 @@ pub fn remove_template(name: &str) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn load_template(name: &str, title: &str) -> Result<String> {
     let template_path = get_template_path(name)?;
 
@@ -170,6 +178,7 @@ pub fn load_template(name: &str, title: &str) -> Result<String> {
     Ok(content)
 }
 
+#[allow(dead_code)]
 pub fn list_template_names() -> Result<Vec<String>> {
     let template_dir = get_template_dir()?;
     list_markdown_files_in_dir(&template_dir)
@@ -181,7 +190,7 @@ fn get_template_dir() -> Result<PathBuf> {
         Ok(workspace::get_templates_dir()?)
     } else {
         // Fallback to global config directory
-        let config_dir = Config::config_dir()?;
+        let config_dir = get_config_dir()?;
         Ok(config_dir.join("templates"))
     }
 }

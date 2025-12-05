@@ -27,7 +27,7 @@ fn get_local_extension_path() -> Option<PathBuf> {
 /// - Windows: %APPDATA%\noet\extension
 fn get_extension_dir() -> Result<PathBuf> {
     let config_dir = dirs::config_dir()
-        .ok_or_else(|| NoetError::Config("設定ディレクトリが見つかりません".into()))?;
+        .ok_or_else(|| NoetError::ConfigError("設定ディレクトリが見つかりません".into()))?;
     Ok(config_dir.join("noet").join("extension"))
 }
 
@@ -36,7 +36,7 @@ fn get_native_manifest_dir() -> Result<PathBuf> {
     #[cfg(target_os = "linux")]
     {
         let home = dirs::home_dir()
-            .ok_or_else(|| NoetError::Config("ホームディレクトリが見つかりません".into()))?;
+            .ok_or_else(|| NoetError::ConfigError("ホームディレクトリが見つかりません".into()))?;
         Ok(home
             .join(".config")
             .join("google-chrome")
@@ -46,7 +46,7 @@ fn get_native_manifest_dir() -> Result<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         let home = dirs::home_dir()
-            .ok_or_else(|| NoetError::Config("ホームディレクトリが見つかりません".into()))?;
+            .ok_or_else(|| NoetError::ConfigError("ホームディレクトリが見つかりません".into()))?;
         Ok(home
             .join("Library")
             .join("Application Support")
@@ -59,13 +59,13 @@ fn get_native_manifest_dir() -> Result<PathBuf> {
     {
         // Windows uses registry, but we can also use a manifest file in AppData
         let app_data = dirs::config_dir()
-            .ok_or_else(|| NoetError::Config("AppDataディレクトリが見つかりません".into()))?;
+            .ok_or_else(|| NoetError::ConfigError("AppDataディレクトリが見つかりません".into()))?;
         Ok(app_data.join("noet").join("NativeMessagingHosts"))
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     {
-        Err(NoetError::Config(
+        Err(NoetError::ConfigError(
             "サポートされていないプラットフォームです".into(),
         ))
     }
@@ -104,12 +104,12 @@ async fn download_extension(extension_dir: &PathBuf) -> Result<()> {
     // Extract zip
     let file = fs::File::open(&zip_path)?;
     let mut archive = zip::ZipArchive::new(file)
-        .map_err(|e| NoetError::Config(format!("ZIPファイルの読み込みに失敗しました: {e}")))?;
+        .map_err(|e| NoetError::ConfigError(format!("ZIPファイルの読み込みに失敗しました: {e}")))?;
 
     for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| NoetError::Config(format!("ZIPエントリの読み込みに失敗しました: {e}")))?;
+        let mut file = archive.by_index(i).map_err(|e| {
+            NoetError::ConfigError(format!("ZIPエントリの読み込みに失敗しました: {e}"))
+        })?;
 
         let outpath = match file.enclosed_name() {
             Some(path) => extension_dir.join(path),

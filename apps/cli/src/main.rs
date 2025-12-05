@@ -1,22 +1,14 @@
-mod api;
-mod auth;
 mod cli;
 mod commands;
-mod config;
 mod converters;
 mod editor;
 mod error;
 mod extension_client;
-mod models;
 mod native_messaging;
-mod rate_limiter;
-mod tui_diff;
 mod workspace;
 
 use clap::Parser;
-use cli::{
-    AuthCommands, Cli, Commands, ExtCommands, MagazineCommands, TagCommands, TemplateCommands,
-};
+use cli::{Cli, Commands, TemplateCommands};
 use colored::Colorize;
 
 #[tokio::main]
@@ -37,11 +29,15 @@ async fn run() -> error::Result<()> {
         return native_messaging::run().await;
     }
 
-    // If no command provided, run interactive mode
+    // If no command provided, show help
     let command = match cli.command {
         Some(cmd) => cmd,
         None => {
-            commands::interactive::run_interactive_mode().await?;
+            println!("noet - Note.com CLI (ブラウザ拡張機能経由)");
+            println!();
+            println!("使い方: noet <COMMAND>");
+            println!();
+            println!("まず `noet setup` を実行して拡張機能をインストールしてください。");
             return Ok(());
         }
     };
@@ -55,76 +51,32 @@ async fn run() -> error::Result<()> {
             commands::workspace::init(path).await?;
         }
 
-        Commands::New { title, template } => {
-            commands::article::new_article(title, template).await?;
+        Commands::Ping => {
+            commands::extension::ping().await?;
         }
 
-        Commands::Publish { file, draft, force } => {
-            commands::article::publish_article(&file, draft, force).await?;
+        Commands::Auth => {
+            commands::extension::check_auth().await?;
         }
 
-        Commands::Diff { file } => {
-            commands::article::show_diff(&file).await?;
+        Commands::List => {
+            commands::extension::list_articles().await?;
         }
 
-        Commands::Edit { id, file } => {
-            commands::article::edit_article(&id, &file).await?;
+        Commands::Get { username, key } => {
+            commands::extension::get_article(&username, &key).await?;
         }
 
-        Commands::Delete { id, force } => {
-            commands::article::delete_article(&id, force).await?;
+        Commands::Create { file, draft } => {
+            commands::extension::create_article(&file, draft).await?;
         }
 
-        Commands::List { username, page } => {
-            commands::article::list_articles(&username, page).await?;
+        Commands::Update { key, file, draft } => {
+            commands::extension::update_article(&key, &file, draft).await?;
         }
 
-        Commands::Tag(tag_cmd) => match tag_cmd {
-            TagCommands::List { page } => {
-                commands::tag::list_tags(page).await?;
-            }
-            TagCommands::Suggest { keyword } => {
-                commands::tag::suggest_tags(&keyword).await?;
-            }
-        },
-
-        Commands::Magazine(mag_cmd) => match mag_cmd {
-            MagazineCommands::Add {
-                magazine,
-                note_id,
-                note_key,
-            } => {
-                commands::magazine::add_to_magazine(&magazine, &note_id, &note_key).await?;
-            }
-            MagazineCommands::Remove { magazine, note_key } => {
-                commands::magazine::remove_from_magazine(&magazine, &note_key).await?;
-            }
-        },
-
-        Commands::Like { key } => {
-            commands::engagement::like_article(&key).await?;
-        }
-
-        Commands::Unlike { key } => {
-            commands::engagement::unlike_article(&key).await?;
-        }
-
-        Commands::Comments { id } => {
-            commands::engagement::show_comments(&id).await?;
-        }
-
-        Commands::User { username } => {
-            commands::user::show_user_info(&username).await?;
-        }
-
-        Commands::Export {
-            article_key,
-            all,
-            username,
-            output,
-            page,
-        } => {
-            commands::export::export_articles(article_key, all, username, output, page).await?;
+        Commands::Delete { key } => {
+            commands::extension::delete_article(&key).await?;
         }
 
         Commands::Template(template_cmd) => match template_cmd {
@@ -139,36 +91,6 @@ async fn run() -> error::Result<()> {
             }
             TemplateCommands::Remove { name } => {
                 commands::template::remove_template(&name)?;
-            }
-        },
-
-        Commands::Auth(auth_cmd) => match auth_cmd {
-            AuthCommands::Status => {
-                commands::auth::status().await?;
-            }
-        },
-
-        Commands::Ext(ext_cmd) => match ext_cmd {
-            ExtCommands::Ping => {
-                commands::extension::ping().await?;
-            }
-            ExtCommands::Auth => {
-                commands::extension::check_auth().await?;
-            }
-            ExtCommands::List => {
-                commands::extension::list_articles().await?;
-            }
-            ExtCommands::Get { username, key } => {
-                commands::extension::get_article(&username, &key).await?;
-            }
-            ExtCommands::Create { file, draft } => {
-                commands::extension::create_article(&file, draft).await?;
-            }
-            ExtCommands::Update { key, file, draft } => {
-                commands::extension::update_article(&key, &file, draft).await?;
-            }
-            ExtCommands::Delete { key } => {
-                commands::extension::delete_article(&key).await?;
             }
         },
     }

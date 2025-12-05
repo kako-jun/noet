@@ -1,19 +1,12 @@
-use crate::config::Config;
 use crate::error::{NoetError, Result};
 use std::env;
 use std::path::Path;
 use std::process::Command;
 
-/// Get the editor command from config, environment variables, or platform default
+/// Get the editor command from environment variables or platform default
+#[allow(dead_code)]
 pub fn get_editor() -> Result<String> {
-    // 1. Check config file
-    if let Ok(config) = Config::load() {
-        if let Some(editor) = config.editor {
-            return Ok(editor);
-        }
-    }
-
-    // 2. Check environment variables
+    // 1. Check environment variables
     if let Ok(editor) = env::var("VISUAL") {
         return Ok(editor);
     }
@@ -21,7 +14,7 @@ pub fn get_editor() -> Result<String> {
         return Ok(editor);
     }
 
-    // 3. Platform defaults
+    // 2. Platform defaults
     #[cfg(target_os = "windows")]
     return Ok("notepad".to_string());
 
@@ -33,6 +26,7 @@ pub fn get_editor() -> Result<String> {
 }
 
 /// Parse editor command handling quoted arguments
+#[allow(dead_code)]
 fn parse_editor_command(cmd: &str) -> Vec<String> {
     let mut args = Vec::new();
     let mut current_arg = String::new();
@@ -63,6 +57,7 @@ fn parse_editor_command(cmd: &str) -> Vec<String> {
 }
 
 /// Open a file in the configured editor
+#[allow(dead_code)]
 pub fn open_in_editor<P: AsRef<Path>>(filepath: P) -> Result<()> {
     let editor_cmd = get_editor()?;
     let parts = parse_editor_command(&editor_cmd);
@@ -99,7 +94,7 @@ mod tests {
 
     #[test]
     fn test_get_editor_has_default() {
-        // Should always return something (either from config, env, or default)
+        // Should always return something (either from env or default)
         let editor = get_editor();
         assert!(editor.is_ok());
         assert!(!editor.unwrap().is_empty());
