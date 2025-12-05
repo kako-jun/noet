@@ -1103,6 +1103,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 name = "noet"
 version = "0.1.2"
 dependencies = [
+ "base64",
  "cargo-husky",
  "clap",
  "colored",
@@ -1112,6 +1113,7 @@ dependencies = [
  "futures-util",
  "html2md",
  "log",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

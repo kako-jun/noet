@@ -271,6 +271,32 @@ impl ExtensionClient {
             .ok_or_else(|| NoetError::Extension("No data in response".into()))
     }
 
+    /// Create a new article with images
+    pub async fn create_article_with_images(
+        &self,
+        title: &str,
+        body: &str,
+        tags: &[String],
+        draft: bool,
+        images: &[crate::image_handler::ImageData],
+        header_image: Option<&crate::image_handler::ImageData>,
+    ) -> Result<serde_json::Value> {
+        let params = serde_json::json!({
+            "title": title,
+            "body": body,
+            "tags": tags,
+            "draft": draft,
+            "images": images,
+            "header_image": header_image
+        });
+
+        let response = self.send_command("create_article", Some(params)).await?;
+
+        response
+            .data
+            .ok_or_else(|| NoetError::Extension("No data in response".into()))
+    }
+
     /// Update an existing article
     pub async fn update_article(
         &self,
@@ -285,6 +311,38 @@ impl ExtensionClient {
             "title": title,
             "body": body,
             "draft": draft
+        });
+
+        if let Some(t) = tags {
+            params["tags"] = serde_json::json!(t);
+        }
+
+        let response = self.send_command("update_article", Some(params)).await?;
+
+        response
+            .data
+            .ok_or_else(|| NoetError::Extension("No data in response".into()))
+    }
+
+    /// Update an existing article with images
+    #[allow(clippy::too_many_arguments)]
+    pub async fn update_article_with_images(
+        &self,
+        key: &str,
+        title: &str,
+        body: &str,
+        tags: Option<&[String]>,
+        draft: bool,
+        images: &[crate::image_handler::ImageData],
+        header_image: Option<&crate::image_handler::ImageData>,
+    ) -> Result<serde_json::Value> {
+        let mut params = serde_json::json!({
+            "key": key,
+            "title": title,
+            "body": body,
+            "draft": draft,
+            "images": images,
+            "header_image": header_image
         });
 
         if let Some(t) = tags {

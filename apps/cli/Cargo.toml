@@ -61,6 +61,12 @@ futures-util = "0.3"
 # UUID for request IDs
 uuid = { version = "1.11", features = ["v4"] }
 
+# Base64 encoding for images
+base64 = "0.22"
+
+# Regex for image extraction
+regex = "1.11"
+
 [dev-dependencies]
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 tempfile = "3"

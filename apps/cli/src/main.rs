@@ -4,6 +4,7 @@ mod converters;
 mod editor;
 mod error;
 mod extension_client;
+mod image_handler;
 mod native_messaging;
 mod workspace;
 
@@ -63,8 +64,12 @@ async fn run() -> error::Result<()> {
             commands::extension::list_articles().await?;
         }
 
-        Commands::Get { username, key } => {
-            commands::extension::get_article(&username, &key).await?;
+        Commands::Get {
+            username,
+            key,
+            save,
+        } => {
+            commands::extension::get_article(&username, &key, save.as_deref()).await?;
         }
 
         Commands::Create { file, draft } => {

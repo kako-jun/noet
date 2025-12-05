@@ -22,6 +22,9 @@ pub enum NoetError {
 
     #[error("拡張機能エラー: {0}")]
     Extension(String),
+
+    #[error("無効な入力: {0}")]
+    InvalidInput(String),
 }
 
 pub type Result<T> = std::result::Result<T, NoetError>;

@@ -42,6 +42,10 @@ pub enum Commands {
 
         /// Article key
         key: String,
+
+        /// Save to file (with images downloaded)
+        #[arg(short, long)]
+        save: Option<PathBuf>,
     },
 
     /// Create a new article from markdown file

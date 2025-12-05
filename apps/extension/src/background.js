@@ -223,7 +223,7 @@ async function handleGetArticle(params) {
 }
 
 async function handleCreateArticle(params) {
-  const { title, body, tags = [], magazines = [], draft = false } = params;
+  const { title, body, tags = [], magazines = [], draft = false, images = [], header_image = null } = params;
 
   // Navigate via note.com/notes/new which redirects to editor.note.com
   return await executeInTab("https://note.com/notes/new", async (tabId) => {
@@ -237,16 +237,28 @@ async function handleCreateArticle(params) {
     await waitForElement(tabId, 'textarea[placeholder="記事タイトル"]', 15000);
     await randomDelay(500, 1000);
 
-    // Step 1: Fill the form
-    const fillResult = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: fillArticleForm,
-      args: [title, body]
-    });
+    // Step 1: Fill the form (with or without images)
+    let fillResult;
+    if (images.length > 0 || header_image) {
+      fillResult = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: fillArticleFormWithImages,
+        args: [title, body, images, header_image]
+      });
+    } else {
+      fillResult = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: fillArticleForm,
+        args: [title, body]
+      });
+    }
 
     if (!fillResult[0].result.success) {
       return fillResult[0].result;
     }
+
+    const uploadedImages = fillResult[0].result.uploaded_images || [];
+    const headerImageUrl = fillResult[0].result.header_image_url || null;
 
     await randomDelay(500, 1500);
 
@@ -268,7 +280,9 @@ async function handleCreateArticle(params) {
       return {
         success: true,
         status: "draft",
-        message: "Article saved as draft"
+        message: "Article saved as draft",
+        uploaded_images: uploadedImages,
+        header_image_url: headerImageUrl
       };
     } else {
       // Click "公開に進む" button - this navigates to /publish/ page (not a dialog!)
@@ -313,14 +327,16 @@ async function handleCreateArticle(params) {
         success: true,
         status: "published",
         url: urlResult[0].result,
-        message: "Article published successfully"
+        message: "Article published successfully",
+        uploaded_images: uploadedImages,
+        header_image_url: headerImageUrl
       };
     }
   });
 }
 
 async function handleUpdateArticle(params) {
-  const { key, title, body, tags, magazines = [], draft = false } = params;
+  const { key, title, body, tags, magazines = [], draft = false, images = [], header_image = null } = params;
 
   // First go to /notes, find the article, click edit
   return await executeInTab("https://note.com/notes", async (tabId) => {
@@ -361,16 +377,28 @@ async function handleUpdateArticle(params) {
     await waitForElement(tabId, 'textarea[placeholder="記事タイトル"]', 15000);
     await randomDelay(500, 1000);
 
-    // Step 3: Fill the form with new content
-    const fillResult = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: fillArticleForm,
-      args: [title, body]
-    });
+    // Step 3: Fill the form with new content (with or without images)
+    let fillResult;
+    if (images.length > 0 || header_image) {
+      fillResult = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: fillArticleFormWithImages,
+        args: [title, body, images, header_image]
+      });
+    } else {
+      fillResult = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: fillArticleForm,
+        args: [title, body]
+      });
+    }
 
     if (!fillResult[0].result.success) {
       return fillResult[0].result;
     }
+
+    const uploadedImages = fillResult[0].result.uploaded_images || [];
+    const headerImageUrl = fillResult[0].result.header_image_url || null;
 
     await randomDelay(500, 1500);
 
@@ -390,7 +418,9 @@ async function handleUpdateArticle(params) {
       return {
         success: true,
         status: "draft",
-        message: "Article updated and saved as draft"
+        message: "Article updated and saved as draft",
+        uploaded_images: uploadedImages,
+        header_image_url: headerImageUrl
       };
     } else {
       // Click "公開に進む" - navigates to /publish/ page
@@ -423,7 +453,9 @@ async function handleUpdateArticle(params) {
       return {
         success: true,
         status: "updated",
-        message: "Article updated successfully"
+        message: "Article updated successfully",
+        uploaded_images: uploadedImages,
+        header_image_url: headerImageUrl
       };
     }
   });
@@ -719,7 +751,260 @@ function humanInput(element, value) {
  * Editor Form Functions - injected into editor.note.com
  */
 
-// Fill article title and body
+// Base64 to Blob conversion utility
+function base64ToBlob(base64, mimeType) {
+  const byteCharacters = atob(base64);
+  const byteArrays = [];
+
+  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+    const slice = byteCharacters.slice(offset, offset + 512);
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    byteArrays.push(byteArray);
+  }
+
+  return new Blob(byteArrays, { type: mimeType });
+}
+
+// Wait for condition with timeout
+function waitForCondition(condition, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      if (condition()) {
+        clearInterval(interval);
+        resolve();
+      } else if (Date.now() - startTime > timeout) {
+        clearInterval(interval);
+        reject(new Error('Timeout waiting for condition'));
+      }
+    }, 100);
+  });
+}
+
+// Upload header image (eyecatch)
+async function uploadHeaderImage(imageData, filename) {
+  try {
+    // Convert base64 to Blob
+    const blob = base64ToBlob(imageData.data, imageData.mime_type);
+    const file = new File([blob], filename, { type: imageData.mime_type });
+
+    // Create DataTransfer
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+
+    // Click "画像を追加" button
+    const addImageButton = document.querySelector('button[aria-label="画像を追加"]');
+    if (!addImageButton) {
+      throw new Error('Header image add button not found');
+    }
+    addImageButton.click();
+
+    // Wait for upload menu to appear
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Click "画像をアップロード" button
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const uploadButton = buttons.find(btn => {
+      const div = btn.querySelector('div');
+      return div && div.textContent.trim() === '画像をアップロード';
+    });
+    if (!uploadButton) {
+      throw new Error('Upload button not found');
+    }
+    uploadButton.click();
+
+    // Wait for file input
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Find file input
+    const fileInput = document.querySelector('input[type="file"]');
+    if (!fileInput) {
+      throw new Error('File input not found');
+    }
+
+    // Set file
+    fileInput.files = dataTransfer.files;
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Wait for crop UI and save button to appear
+    await waitForCondition(() => {
+      const saveButton = Array.from(document.querySelectorAll('button')).find(btn =>
+        btn.textContent.includes('保存')
+      );
+      return !!saveButton;
+    }, 10000);
+
+    // Click save button (accept default crop)
+    const saveButton = Array.from(document.querySelectorAll('button')).find(btn =>
+      btn.textContent.includes('保存')
+    );
+    if (!saveButton) {
+      throw new Error('Save button not found');
+    }
+    saveButton.click();
+
+    // Wait for upload to complete (image appears)
+    await waitForCondition(() => {
+      const img = document.querySelector('img[alt="eyecatch"]');
+      return img && img.src && !img.src.startsWith('blob:') && img.src.includes('st-note.com');
+    }, 15000);
+
+    // Get uploaded image URL
+    const img = document.querySelector('img[alt="eyecatch"]');
+    const noteUrl = img.src;
+
+    return {
+      success: true,
+      url: noteUrl
+    };
+
+  } catch (e) {
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+// Remove header image
+async function removeHeaderImage() {
+  try {
+    // Find delete button (× button with aria-label="削除")
+    const deleteIcon = document.querySelector('[role="img"][aria-label="削除"]');
+    if (!deleteIcon) {
+      return { success: true, message: 'No header image to remove' };
+    }
+
+    // Find the button containing this icon
+    const deleteButton = deleteIcon.closest('button');
+    if (!deleteButton) {
+      throw new Error('Delete button not found');
+    }
+
+    deleteButton.click();
+
+    // Wait for image to be removed
+    await waitForCondition(() => {
+      const img = document.querySelector('img[alt="eyecatch"]');
+      return !img;
+    }, 5000);
+
+    return {
+      success: true,
+      message: 'Header image removed'
+    };
+
+  } catch (e) {
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+// Upload a single content image to the editor
+async function uploadImage(imageData, filename, caption) {
+  try {
+    // Convert base64 to Blob
+    const blob = base64ToBlob(imageData.data, imageData.mime_type);
+    const file = new File([blob], filename, { type: imageData.mime_type });
+
+    // Create DataTransfer
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+
+    // Get editor
+    const editor = document.querySelector('.ProseMirror.note-common-styles__textnote-body');
+    if (!editor) {
+      throw new Error('Editor not found');
+    }
+
+    // Focus editor at the end
+    editor.focus();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    // Click + button (menu button)
+    const plusButton = document.querySelector('button[aria-label="メニューを開く"]');
+    if (!plusButton) {
+      throw new Error('Plus button not found - click in editor first');
+    }
+    plusButton.click();
+
+    // Wait for menu to appear
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Click image button
+    const imageButtons = Array.from(document.querySelectorAll('button'));
+    const imageButton = imageButtons.find(btn => btn.textContent.trim() === '画像');
+    if (!imageButton) {
+      throw new Error('Image button not found in menu');
+    }
+    imageButton.click();
+
+    // Wait for file input
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Find file input
+    const fileInput = document.querySelector('input[type="file"]');
+    if (!fileInput) {
+      throw new Error('File input not found');
+    }
+
+    // Set file
+    fileInput.files = dataTransfer.files;
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Wait for upload to complete (new figure appears)
+    const initialFigureCount = document.querySelectorAll('.ProseMirror figure').length;
+    await waitForCondition(() => {
+      return document.querySelectorAll('.ProseMirror figure').length > initialFigureCount;
+    }, 15000);
+
+    // Get the newly added figure
+    const figures = document.querySelectorAll('.ProseMirror figure');
+    const newFigure = figures[figures.length - 1];
+    const img = newFigure.querySelector('img');
+
+    // Wait for image URL to be set (not blob:)
+    await waitForCondition(() => {
+      return img.src && !img.src.startsWith('blob:') && img.src.includes('st-note.com');
+    }, 15000);
+
+    const noteUrl = img.src;
+
+    // Set caption if provided
+    if (caption) {
+      const figcaption = newFigure.querySelector('figcaption');
+      if (figcaption) {
+        figcaption.textContent = caption;
+        figcaption.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+
+    return {
+      success: true,
+      url: noteUrl,
+      caption: caption
+    };
+
+  } catch (e) {
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+// Fill article title and body (without images)
 function fillArticleForm(title, body) {
   try {
     // Fill title
@@ -762,6 +1047,90 @@ function fillArticleForm(title, body) {
     }
 
     return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// Fill article with images support
+async function fillArticleFormWithImages(title, body, images, headerImage) {
+  try {
+    // Fill title first
+    const titleInput = document.querySelector('textarea[placeholder="記事タイトル"]');
+    if (!titleInput) {
+      return { success: false, error: "Title input not found. Page may not be editor." };
+    }
+
+    titleInput.focus();
+    titleInput.value = title;
+    titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+    titleInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Upload header image if provided
+    let headerImageUrl = null;
+    if (headerImage) {
+      const headerResult = await uploadHeaderImage(headerImage, headerImage.filename);
+      if (!headerResult.success) {
+        return { success: false, error: `Header image upload failed: ${headerResult.error}` };
+      }
+      headerImageUrl = headerResult.url;
+    }
+
+    // Upload content images and collect URLs
+    const uploadedImages = [];
+
+    if (images && images.length > 0) {
+      for (const img of images) {
+        const result = await uploadImage(img, img.filename, img.caption);
+        if (!result.success) {
+          return { success: false, error: `Image upload failed: ${result.error}` };
+        }
+        uploadedImages.push({
+          local_path: img.local_path,
+          note_url: result.url,
+          caption: img.caption
+        });
+      }
+    }
+
+    // Replace image paths in Markdown body
+    let modifiedBody = body;
+    for (const img of uploadedImages) {
+      // Match ![caption](local_path) patterns
+      const pattern = new RegExp(`!\\[([^\\]]*)\\]\\(${img.local_path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`, 'g');
+      modifiedBody = modifiedBody.replace(pattern, `![$1](${img.note_url})`);
+    }
+
+    // Fill body with modified Markdown
+    const bodyEditor = document.querySelector('.ProseMirror.note-common-styles__textnote-body');
+    if (!bodyEditor) {
+      return { success: false, error: "Body editor not found" };
+    }
+
+    bodyEditor.focus();
+
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', modifiedBody);
+
+    const pasteEvent = new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: clipboardData
+    });
+
+    bodyEditor.dispatchEvent(pasteEvent);
+
+    // Fallback
+    if (bodyEditor.textContent.trim() === '') {
+      bodyEditor.textContent = modifiedBody;
+      bodyEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    return {
+      success: true,
+      uploaded_images: uploadedImages,
+      header_image_url: headerImageUrl
+    };
   } catch (e) {
     return { success: false, error: e.message };
   }
