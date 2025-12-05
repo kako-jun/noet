@@ -145,6 +145,10 @@ pub enum Commands {
     /// Authentication commands
     #[command(subcommand)]
     Auth(AuthCommands),
+
+    /// Extension-based commands (using browser extension for Note.com operations)
+    #[command(subcommand)]
+    Ext(ExtCommands),
 }
 
 #[derive(Subcommand)]
@@ -217,4 +221,56 @@ pub enum TemplateCommands {
 pub enum AuthCommands {
     /// Show authentication status and setup instructions
     Status,
+}
+
+/// Extension-based commands (using browser extension for Note.com operations)
+#[derive(Subcommand)]
+pub enum ExtCommands {
+    /// Check connection to browser extension
+    Ping,
+
+    /// Check authentication status via extension
+    Auth,
+
+    /// List articles via extension
+    List,
+
+    /// Get article content via extension
+    Get {
+        /// Username
+        #[arg(short, long)]
+        username: String,
+
+        /// Article key
+        key: String,
+    },
+
+    /// Create article via extension
+    Create {
+        /// Path to the markdown file
+        file: PathBuf,
+
+        /// Save as draft instead of publishing
+        #[arg(short, long)]
+        draft: bool,
+    },
+
+    /// Update article via extension
+    Update {
+        /// Article key
+        key: String,
+
+        /// Path to the markdown file
+        file: PathBuf,
+
+        /// Save as draft instead of publishing
+        #[arg(short, long)]
+        draft: bool,
+    },
+
+    /// Delete article via extension
+    Delete {
+        /// Article key
+        key: String,
+    },
 }

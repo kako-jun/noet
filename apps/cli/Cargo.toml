@@ -72,6 +72,13 @@ similar = "2"
 # ZIP extraction
 zip = "2.2"
 
+# WebSocket for extension communication
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+
+# UUID for request IDs
+uuid = { version = "1.11", features = ["v4"] }
+
 [dev-dependencies]
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 tempfile = "3"

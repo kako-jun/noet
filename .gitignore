@@ -3,6 +3,10 @@ target/
 **/*.rs.bk
 *.pdb
 
+# Node.js
+node_modules/
+package-lock.json
+
 # IDE
 .vscode/
 .idea/

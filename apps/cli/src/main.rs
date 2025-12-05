@@ -6,6 +6,7 @@ mod config;
 mod converters;
 mod editor;
 mod error;
+mod extension_client;
 mod models;
 mod native_messaging;
 mod rate_limiter;
@@ -13,7 +14,9 @@ mod tui_diff;
 mod workspace;
 
 use clap::Parser;
-use cli::{AuthCommands, Cli, Commands, MagazineCommands, TagCommands, TemplateCommands};
+use cli::{
+    AuthCommands, Cli, Commands, ExtCommands, MagazineCommands, TagCommands, TemplateCommands,
+};
 use colored::Colorize;
 
 #[tokio::main]
@@ -142,6 +145,30 @@ async fn run() -> error::Result<()> {
         Commands::Auth(auth_cmd) => match auth_cmd {
             AuthCommands::Status => {
                 commands::auth::status().await?;
+            }
+        },
+
+        Commands::Ext(ext_cmd) => match ext_cmd {
+            ExtCommands::Ping => {
+                commands::extension::ping().await?;
+            }
+            ExtCommands::Auth => {
+                commands::extension::check_auth().await?;
+            }
+            ExtCommands::List => {
+                commands::extension::list_articles().await?;
+            }
+            ExtCommands::Get { username, key } => {
+                commands::extension::get_article(&username, &key).await?;
+            }
+            ExtCommands::Create { file, draft } => {
+                commands::extension::create_article(&file, draft).await?;
+            }
+            ExtCommands::Update { key, file, draft } => {
+                commands::extension::update_article(&key, &file, draft).await?;
+            }
+            ExtCommands::Delete { key } => {
+                commands::extension::delete_article(&key).await?;
             }
         },
     }

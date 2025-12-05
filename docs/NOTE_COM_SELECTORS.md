@@ -286,8 +286,172 @@ const publishDate = document.querySelector('time[datetime]')?.getAttribute('date
 
 ---
 
-## 次に調査が必要な項目
+## 12. 公開設定ページ（詳細調査済み 2025-12-05）
 
-- [ ] タグ入力の仕組み（公開設定画面）
-- [ ] 公開ボタンの最終セレクター
-- [ ] 記事作成フロー（新規投稿）
+**URL**: `https://editor.note.com/notes/{note_id}/publish/`
+
+### 重要な発見
+- 「公開に進む」ボタンは**ページ遷移**を引き起こす（ダイアログではない）
+- `/edit/` から `/publish/` へのURL変更
+- 左サイドにナビゲーション、右にフォーム構成
+
+### メインセレクター
+
+| 要素 | セレクター | 備考 |
+|------|-----------|------|
+| ハッシュタグ入力 | `input[placeholder="ハッシュタグを追加する"]` | テキスト入力 |
+| 投稿するボタン | `button:has-text("投稿する")` | ヘッダー右端、緑色 |
+| キャンセルボタン | `button:has-text("キャンセル")` | ヘッダー左端 |
+| 無料ラジオ | `input#free[name="is_paid"]` | type="radio" |
+| 有料ラジオ | `input#paid[name="is_paid"]` | type="radio" |
+| 日時設定ボタン | `button:has-text("日時の設定")` | 予約投稿用（プレミアム機能） |
+
+### ナビゲーション（左サイドバー）
+
+| 要素 | セレクター |
+|------|-----------|
+| ハッシュタグセクション | `button:has-text("ハッシュタグ")` |
+| 記事タイプセクション | `button:has-text("記事タイプ")` |
+| 記事の追加セクション | `button:has-text("記事の追加")` |
+| 詳細設定セクション | `button:has-text("詳細設定")` |
+
+### 記事タイプ選択
+
+```javascript
+// 無料記事（デフォルト）
+document.querySelector('input#free').click();
+
+// 有料記事
+document.querySelector('input#paid').click();
+```
+
+### マガジン追加
+
+| 要素 | セレクター | 備考 |
+|------|-----------|------|
+| マガジンタブ | `button:has-text("マガジン")` | |
+| メンバーシップタブ | `button:has-text("メンバーシップ")` | |
+| 追加ボタン（各マガジン） | `button:has-text("追加")` | 複数存在 |
+
+### 詳細設定（チェックボックス）
+
+| 設定 | 初期状態 | 備考 |
+|------|---------|------|
+| クリエイターページに表示 | ON | |
+| AI学習対価還元プログラムに参加 | ON | |
+| コメントの受けつけ | ON | プレミアム機能 |
+
+### 予約投稿
+
+| 要素 | セレクター | 備考 |
+|------|-----------|------|
+| 日時設定ボタン | `button:has-text("日時の設定")` | プレミアム会員のみ |
+
+### 公開実行
+
+```javascript
+// 1. ハッシュタグを入力（任意）
+const tagInput = document.querySelector('input[placeholder="ハッシュタグを追加する"]');
+tagInput.value = 'タグ名';
+tagInput.dispatchEvent(new Event('input', { bubbles: true }));
+// Enter キーで確定が必要
+
+// 2. マガジンに追加（任意）
+// マガジン名を含む行を探し、その中の「追加」ボタンをクリック
+const magazineName = '雪国のピカクシダ';
+const rows = document.querySelectorAll('div, li');
+for (const row of rows) {
+  if (row.textContent.includes(magazineName)) {
+    const addBtn = row.querySelector('button');
+    if (addBtn && addBtn.textContent.trim() === '追加') {
+      addBtn.click();
+      break;
+    }
+  }
+}
+
+// 3. 投稿ボタンをクリック
+const publishBtn = Array.from(document.querySelectorAll('button'))
+  .find(b => b.textContent.includes('投稿する'));
+publishBtn.click();
+```
+
+---
+
+## 13. 実装済みフロー（拡張機能）
+
+### 記事作成フロー
+1. `https://note.com/notes/new` → `https://editor.note.com/new` にリダイレクト
+2. タイトル入力: `textarea[placeholder="記事タイトル"]`
+3. 本文入力: `.ProseMirror.note-common-styles__textnote-body` (contenteditable)
+4. 下書き保存: `button:has-text("下書き保存")`
+5. 公開に進む: `button:has-text("公開に進む")` → `/publish/` ページへ遷移
+6. 公開設定ページ: `https://editor.note.com/notes/{id}/publish/`
+7. ハッシュタグ入力: `input[placeholder="ハッシュタグを追加する"]`
+8. 最終投稿: `button:has-text("投稿する")`
+
+### 記事更新フロー
+1. `https://note.com/notes` で記事一覧を表示
+2. 記事行の三点メニュー: `[aria-label="その他"]`
+3. 編集クリック: `button:has-text("編集")`
+4. エディターページにリダイレクト: `https://editor.note.com/notes/{id}/edit/`
+5. 以下、作成フローと同様（タイトル・本文編集 → 公開に進む → 公開設定 → 投稿する）
+
+### 記事削除フロー
+1. `https://note.com/notes` で記事一覧を表示
+2. 記事行の三点メニュー: `[aria-label="その他"]`
+3. 削除クリック: `button:has-text("削除")`
+4. 確認ダイアログ: 確認メッセージが表示される
+5. 確認ボタン: `button:has-text("削除")` または `button:has-text("削除する")`
+
+---
+
+## 14. CLI - 拡張機能通信
+
+### WebSocket通信
+- CLIがWebSocketサーバーを起動: `ws://127.0.0.1:9876`
+- 拡張機能がクライアントとして接続
+- JSON形式でコマンドをやり取り
+
+### コマンド形式
+```json
+// リクエスト
+{
+  "id": "uuid",
+  "command": "create_article",
+  "params": {
+    "title": "記事タイトル",
+    "body": "本文",
+    "tags": ["タグ1", "タグ2"],
+    "draft": false
+  }
+}
+
+// レスポンス
+{
+  "id": "uuid",
+  "status": "success",
+  "data": { ... }
+}
+```
+
+### 利用可能なコマンド
+- `ping` - 接続確認
+- `check_auth` - ログイン状態確認
+- `list_articles` - 記事一覧取得
+- `get_article` - 記事取得
+- `create_article` - 記事作成
+- `update_article` - 記事更新
+- `delete_article` - 記事削除
+- `set_debug_mode` - デバッグモード設定
+
+---
+
+## 完了した調査項目
+
+- [x] タグ入力の仕組み（公開設定画面）
+- [x] 公開ボタンの最終セレクター
+- [x] 記事作成フロー（新規投稿）
+- [x] 記事更新フロー
+- [x] 記事削除フロー
+- [x] CLI - 拡張機能通信

@@ -48,6 +48,9 @@ pub enum NoetError {
     #[error("不明なエラー: {0}")]
     #[allow(dead_code)]
     Unknown(String),
+
+    #[error("拡張機能エラー: {0}")]
+    Extension(String),
 }
 
 pub type Result<T> = std::result::Result<T, NoetError>;
