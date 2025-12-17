@@ -30,3 +30,4 @@ Thumbs.db
 
 # Investigation screenshots (temporary)
 screenshots/
+.mcp.json
